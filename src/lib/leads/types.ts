@@ -107,3 +107,46 @@ export interface DashboardStats {
   failed_jobs: number;
   average_score: number;
 }
+
+// ============================================
+// Discovery Types
+// ============================================
+
+export type DiscoverySource = "manual" | "url_list" | "yelp";
+
+export interface DiscoveryJob {
+  id: string;
+  niche: string | null;
+  city: string | null;
+  state: string | null;
+  keyword: string | null;
+  source: string;
+  status: JobStatus;
+  total_found: number;
+  imported: number;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface DiscoveryResult {
+  id: string;
+  discovery_job_id: string;
+  business_name: string;
+  city: string | null;
+  state: string | null;
+  website: string | null;
+  source: string | null;
+  niche: string | null;
+  imported: boolean;
+  lead_id: string | null;
+  created_at: string;
+}
+
+export interface DiscoveryInput {
+  niche: string;
+  city: string;
+  state: string;
+  keyword: string;
+  source: DiscoverySource;
+  urls?: string; // newline-separated URLs for url_list source
+}
