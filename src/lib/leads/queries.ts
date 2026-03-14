@@ -1,5 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import type { Lead, ImportJob, EnrichmentJob, DashboardStats } from "./types";
+import type { Lead, ImportJob, EnrichmentJob, DashboardStats, DiscoveryJob, DiscoveryResult } from "./types";
 import type { LeadFilter } from "@/lib/validators/lead";
 
 export async function getLeads(
@@ -110,6 +110,47 @@ export async function getEnrichmentJobs(
     .limit(100);
   if (error) throw error;
   return (data as EnrichmentJob[]) ?? [];
+}
+
+export async function getDiscoveryJobs(
+  supabase: SupabaseClient
+): Promise<DiscoveryJob[]> {
+  const { data, error } = await supabase
+    .from("discovery_jobs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data as DiscoveryJob[]) ?? [];
+}
+
+export async function getDiscoveryResults(
+  supabase: SupabaseClient,
+  jobId: string
+): Promise<DiscoveryResult[]> {
+  const { data, error } = await supabase
+    .from("discovery_results")
+    .select("*")
+    .eq("discovery_job_id", jobId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data as DiscoveryResult[]) ?? [];
+}
+
+export async function getLatestDiscoveryJob(
+  supabase: SupabaseClient
+): Promise<DiscoveryJob | null> {
+  const { data, error } = await supabase
+    .from("discovery_jobs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data as DiscoveryJob;
 }
 
 export async function checkDuplicateLead(

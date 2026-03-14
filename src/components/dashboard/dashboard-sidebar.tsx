@@ -10,11 +10,13 @@ import {
   Briefcase,
   Download,
   Search,
+  Compass,
 } from "lucide-react";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "Leads", href: "/dashboard/leads", icon: Users },
+  { label: "Discover", href: "/dashboard/discover", icon: Compass },
   { label: "Import", href: "/dashboard/imports", icon: Upload },
   { label: "Jobs", href: "/dashboard/jobs", icon: Briefcase },
   { label: "Export", href: "/dashboard/exports", icon: Download },
