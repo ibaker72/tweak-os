@@ -7,19 +7,20 @@ import {
   LayoutDashboard,
   Users,
   Upload,
-  Briefcase,
   Download,
   Search,
   Compass,
+  BookmarkCheck,
+  Zap,
 } from "lucide-react";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Leads", href: "/dashboard/leads", icon: Users },
   { label: "Discover", href: "/dashboard/discover", icon: Compass },
+  { label: "Leads", href: "/dashboard/leads", icon: Users },
   { label: "Import", href: "/dashboard/imports", icon: Upload },
-  { label: "Jobs", href: "/dashboard/jobs", icon: Briefcase },
   { label: "Export", href: "/dashboard/exports", icon: Download },
+  { label: "Saved Searches", href: "/dashboard/saved-searches", icon: BookmarkCheck },
 ];
 
 export function DashboardSidebar() {
@@ -28,11 +29,23 @@ export function DashboardSidebar() {
   return (
     <aside className="fixed left-0 top-0 z-30 flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-zinc-800 px-6">
-        <Search className="h-5 w-5 text-emerald-500" />
-        <span className="text-lg font-bold text-zinc-50">
-          Lead Finder
-        </span>
+      <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
+        <a
+          href="https://tweakandbuild.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 transition-opacity hover:opacity-80"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+            <Zap className="h-4 w-4 text-emerald-500" />
+          </div>
+          <div>
+            <span className="text-sm font-bold text-zinc-50">
+              Tweak & Build
+            </span>
+            <p className="text-[10px] text-zinc-500">Lead Finder</p>
+          </div>
+        </a>
       </div>
 
       {/* Navigation */}
@@ -49,7 +62,7 @@ export function DashboardSidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-zinc-800 text-zinc-50"
+                  ? "bg-emerald-500/10 text-emerald-400"
                   : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-50"
               )}
             >
@@ -62,7 +75,9 @@ export function DashboardSidebar() {
 
       {/* Footer */}
       <div className="border-t border-zinc-800 p-4">
-        <p className="text-xs text-zinc-500">TweakAndBuild</p>
+        <p className="text-[10px] text-zinc-600">
+          Internal Tool — Tweak & Build Studio {new Date().getFullYear()}
+        </p>
       </div>
     </aside>
   );

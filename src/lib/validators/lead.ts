@@ -2,18 +2,19 @@ import { z } from "zod";
 
 export const lifecycleStatusSchema = z.enum([
   "new",
+  "enriched",
   "contacted",
-  "qualified",
-  "proposal",
+  "replied",
+  "meeting_booked",
   "won",
   "lost",
-  "archived",
+  "not_a_fit",
 ]);
 
 export const enrichmentStatusSchema = z.enum([
   "pending",
-  "in_progress",
-  "completed",
+  "crawling",
+  "complete",
   "failed",
 ]);
 
@@ -22,10 +23,14 @@ export const leadUpdateSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   website: z.string().url().optional().or(z.literal("")),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
   source: z.string().optional(),
   niche: z.string().optional(),
+  category: z.string().optional(),
   lifecycle_status: lifecycleStatusSchema.optional(),
   manual_notes: z.string().optional(),
+  score: z.number().int().min(0).max(100).optional(),
 });
 
 export const leadFilterSchema = z.object({
@@ -33,11 +38,16 @@ export const leadFilterSchema = z.object({
   lifecycle_status: lifecycleStatusSchema.optional(),
   enrichment_status: enrichmentStatusSchema.optional(),
   niche: z.string().optional(),
+  industry: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  tech_stack: z.string().optional(),
   min_score: z.coerce.number().int().min(0).max(100).optional(),
+  max_score: z.coerce.number().int().min(0).max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   per_page: z.coerce.number().int().min(1).max(100).default(25),
   sort_by: z
-    .enum(["score", "business_name", "created_at", "updated_at"])
+    .enum(["score", "business_name", "created_at", "updated_at", "lifecycle_status", "city", "state", "niche"])
     .default("created_at"),
   sort_order: z.enum(["asc", "desc"]).default("desc"),
 });

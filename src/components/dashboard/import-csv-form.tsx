@@ -70,7 +70,7 @@ export function ImportCsvForm() {
                 {file ? file.name : "Click to select a CSV file"}
               </p>
               <p className="mt-1 text-xs text-zinc-600">
-                Required columns: business_name, city, state, website, source
+                Columns: business_name, website, phone, email, city, state, industry
               </p>
               <input
                 ref={inputRef}

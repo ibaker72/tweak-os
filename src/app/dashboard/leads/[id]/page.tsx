@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getLeadById } from "@/lib/leads/queries";
+import { getLeadById, getActivityLog } from "@/lib/leads/queries";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadDetailCard } from "@/components/dashboard/lead-detail-card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,13 @@ export default async function LeadDetailPage({
     notFound();
   }
 
+  let activityLog: Awaited<ReturnType<typeof getActivityLog>> = [];
+  try {
+    activityLog = await getActivityLog(supabase, id);
+  } catch {
+    activityLog = [];
+  }
+
   return (
     <div className="space-y-6">
       <DashboardHeader
@@ -34,7 +41,7 @@ export default async function LeadDetailPage({
         </Link>
       </DashboardHeader>
 
-      <LeadDetailCard lead={lead} />
+      <LeadDetailCard lead={lead} activityLog={activityLog} />
     </div>
   );
 }

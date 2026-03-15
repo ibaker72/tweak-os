@@ -1,13 +1,21 @@
 import * as cheerio from "cheerio";
 import type { DiscoveryInput } from "./types";
+import { searchGooglePlaces, getPlaceDetails, type GooglePlaceResult } from "./google-places";
+import { searchGoogleCustom, buildSearchQuery } from "./google-search";
 
 export interface DiscoveredBusiness {
   business_name: string;
   city: string | null;
   state: string | null;
   website: string | null;
+  phone: string | null;
   source: string;
   niche: string | null;
+  google_place_id: string | null;
+  google_rating: number | null;
+  google_review_count: number | null;
+  category: string | null;
+  address: string | null;
 }
 
 const FETCH_TIMEOUT = 8_000;
@@ -35,15 +43,10 @@ async function fetchPageSafe(url: string): Promise<string | null> {
   }
 }
 
-/**
- * Extract a likely business name from a page's <title> tag.
- * Strips common suffixes like " | Home", " - Welcome", " – Official Site".
- */
 function extractBusinessName(html: string): string | null {
   const $ = cheerio.load(html);
   let title = $("title").first().text().trim();
   if (!title) {
-    // Fall back to og:site_name or og:title
     title =
       $('meta[property="og:site_name"]').attr("content")?.trim() ||
       $('meta[property="og:title"]').attr("content")?.trim() ||
@@ -51,7 +54,6 @@ function extractBusinessName(html: string): string | null {
   }
   if (!title) return null;
 
-  // Strip common suffixes
   title = title
     .replace(/\s*[|–—-]\s*(home|welcome|official\s*site|main).*$/i, "")
     .replace(/\s*[|–—-]\s*$/, "")
@@ -60,14 +62,10 @@ function extractBusinessName(html: string): string | null {
   return title || null;
 }
 
-/**
- * Try to extract city/state from meta tags or structured data.
- */
 function extractLocation(html: string): { city: string | null; state: string | null } {
   const $ = cheerio.load(html);
   const text = $("body").text();
 
-  // Look for common address patterns in structured data
   const addressRegion =
     $('[itemprop="addressRegion"]').first().text().trim() ||
     $('[property="business:contact_data:region"]').attr("content")?.trim() ||
@@ -81,7 +79,6 @@ function extractLocation(html: string): { city: string | null; state: string | n
     return { city: addressLocality || null, state: addressRegion || null };
   }
 
-  // Fall back: look for "City, ST" pattern in first few hundred chars of body
   const snippet = text.slice(0, 2000);
   const match = snippet.match(
     /([A-Z][a-z]+(?:\s[A-Z][a-z]+)?),\s*([A-Z]{2})\b/
@@ -94,10 +91,102 @@ function extractLocation(html: string): { city: string | null; state: string | n
 }
 
 // ============================================
+// Google Places Provider
+// ============================================
+async function discoverFromGooglePlaces(
+  input: DiscoveryInput
+): Promise<DiscoveredBusiness[]> {
+  const places = await searchGooglePlaces(input);
+  const results: DiscoveredBusiness[] = [];
+
+  // Get details for first 20 results (to get phone/website)
+  // Batch with concurrency limit of 2
+  const detailPromises: Promise<void>[] = [];
+  const detailsMap = new Map<string, { phone: string | null; website: string | null }>();
+
+  for (const place of places.slice(0, 20)) {
+    const promise = getPlaceDetails(place.google_place_id).then((details) => {
+      detailsMap.set(place.google_place_id, {
+        phone: details.phone,
+        website: details.website,
+      });
+    });
+    detailPromises.push(promise);
+
+    // Process in batches of 2
+    if (detailPromises.length >= 2) {
+      await Promise.all(detailPromises);
+      detailPromises.length = 0;
+      await new Promise((resolve) => setTimeout(resolve, 200)); // Rate limit
+    }
+  }
+  if (detailPromises.length > 0) {
+    await Promise.all(detailPromises);
+  }
+
+  for (const place of places) {
+    const details = detailsMap.get(place.google_place_id);
+    results.push({
+      business_name: place.business_name,
+      city: place.city,
+      state: place.state,
+      website: details?.website ?? place.website,
+      phone: details?.phone ?? place.phone,
+      source: "google_places",
+      niche: input.niche || null,
+      google_place_id: place.google_place_id,
+      google_rating: place.google_rating,
+      google_review_count: place.google_review_count,
+      category: place.category,
+      address: place.address,
+    });
+  }
+
+  return results;
+}
+
+// ============================================
+// Google Custom Search Provider
+// ============================================
+async function discoverFromGoogleSearch(
+  input: DiscoveryInput
+): Promise<DiscoveredBusiness[]> {
+  const query = buildSearchQuery(
+    input.keyword || input.niche || "",
+    [input.city, input.state].filter(Boolean).join(" ")
+  );
+
+  const searchResults = await searchGoogleCustom(query);
+  const results: DiscoveredBusiness[] = [];
+
+  for (const sr of searchResults) {
+    try {
+      const hostname = new URL(sr.link).hostname.replace(/^www\./, "");
+      results.push({
+        business_name: sr.title.replace(/\s*[|–—-].*$/, "").trim() || hostname,
+        city: input.city || null,
+        state: input.state || null,
+        website: sr.link,
+        phone: null,
+        source: "google_search",
+        niche: input.niche || null,
+        google_place_id: null,
+        google_rating: null,
+        google_review_count: null,
+        category: null,
+        address: null,
+      });
+    } catch {
+      // Skip invalid URLs
+    }
+  }
+
+  return results;
+}
+
+// ============================================
 // URL List Provider
 // ============================================
-// User pastes a list of business website URLs.
-// We fetch each one and extract business info.
 async function discoverFromUrlList(
   input: DiscoveryInput
 ): Promise<DiscoveredBusiness[]> {
@@ -111,18 +200,22 @@ async function discoverFromUrlList(
 
   const results: DiscoveredBusiness[] = [];
 
-  // Process up to 50 URLs
   for (const url of urls.slice(0, 50)) {
     const html = await fetchPageSafe(url);
     if (!html) {
-      // Still record it with just the URL
       results.push({
         business_name: new URL(url).hostname.replace(/^www\./, ""),
         city: input.city || null,
         state: input.state || null,
         website: url,
+        phone: null,
         source: "url_list",
         niche: input.niche || null,
+        google_place_id: null,
+        google_rating: null,
+        google_review_count: null,
+        category: null,
+        address: null,
       });
       continue;
     }
@@ -135,8 +228,14 @@ async function discoverFromUrlList(
       city: location.city || input.city || null,
       state: location.state || input.state || null,
       website: url,
+      phone: null,
       source: "url_list",
       niche: input.niche || null,
+      google_place_id: null,
+      google_rating: null,
+      google_review_count: null,
+      category: null,
+      address: null,
     });
   }
 
@@ -146,77 +245,8 @@ async function discoverFromUrlList(
 // ============================================
 // Manual Entry Provider
 // ============================================
-// User fills in niche/city/state/keyword — we create a single
-// placeholder result that they can edit before importing.
-// This is the simplest "seed" flow.
-function discoverManual(input: DiscoveryInput): DiscoveredBusiness[] {
-  // Manual mode: user will add results themselves via the UI.
-  // We return an empty array; the UI handles manual entry.
+function discoverManual(): DiscoveredBusiness[] {
   return [];
-}
-
-// ============================================
-// Yelp Fusion API Provider
-// ============================================
-// Only works if YELP_API_KEY is configured.
-async function discoverFromYelp(
-  input: DiscoveryInput
-): Promise<DiscoveredBusiness[]> {
-  const apiKey = process.env.YELP_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Yelp API key not configured. Set YELP_API_KEY in your environment."
-    );
-  }
-
-  const params = new URLSearchParams();
-  if (input.keyword) params.set("term", input.keyword);
-  if (input.niche) params.set("categories", input.niche);
-
-  const locationParts = [input.city, input.state].filter(Boolean);
-  if (locationParts.length > 0) {
-    params.set("location", locationParts.join(", "));
-  } else {
-    throw new Error("City or state is required for Yelp discovery.");
-  }
-
-  params.set("limit", "50");
-  params.set("sort_by", "best_match");
-
-  const res = await fetch(
-    `https://api.yelp.com/v3/businesses/search?${params.toString()}`,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-    }
-  );
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Yelp API error (${res.status}): ${body}`);
-  }
-
-  const data = await res.json();
-
-  return (data.businesses ?? []).map(
-    (biz: {
-      name: string;
-      url: string;
-      location?: {
-        city?: string;
-        state?: string;
-      };
-    }) => ({
-      business_name: biz.name,
-      city: biz.location?.city ?? input.city ?? null,
-      state: biz.location?.state ?? input.state ?? null,
-      website: biz.url ?? null,
-      source: "yelp",
-      niche: input.niche || null,
-    })
-  );
 }
 
 // ============================================
@@ -226,12 +256,14 @@ export async function runDiscovery(
   input: DiscoveryInput
 ): Promise<DiscoveredBusiness[]> {
   switch (input.source) {
+    case "google_places":
+      return discoverFromGooglePlaces(input);
+    case "google_search":
+      return discoverFromGoogleSearch(input);
     case "url_list":
       return discoverFromUrlList(input);
-    case "yelp":
-      return discoverFromYelp(input);
     case "manual":
     default:
-      return discoverManual(input);
+      return discoverManual();
   }
 }

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Lead, LifecycleStatus } from "@/lib/leads/types";
+import type { Lead, LifecycleStatus, ActivityLogEntry } from "@/lib/leads/types";
+import { getScoreColor, getScoreBgColor } from "@/lib/leads/scoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,34 +21,59 @@ import {
   ExternalLink,
   RefreshCw,
   Save,
+  Copy,
+  Check,
+  Zap,
+  Shield,
+  Smartphone,
+  Clock,
+  ShoppingCart,
+  BookOpen,
+  Star,
+  MessageSquare,
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const LIFECYCLE_OPTIONS: LifecycleStatus[] = [
   "new",
+  "enriched",
   "contacted",
-  "qualified",
-  "proposal",
+  "replied",
+  "meeting_booked",
   "won",
   "lost",
-  "archived",
+  "not_a_fit",
 ];
 
-export function LeadDetailCard({ lead }: { lead: Lead }) {
+export function LeadDetailCard({
+  lead,
+  activityLog = [],
+}: {
+  lead: Lead;
+  activityLog?: ActivityLogEntry[];
+}) {
   const router = useRouter();
   const [status, setStatus] = useState(lead.lifecycle_status);
   const [notes, setNotes] = useState(lead.manual_notes ?? "");
+  const [manualScore, setManualScore] = useState(String(lead.score));
   const [saving, setSaving] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [generatingOutreach, setGeneratingOutreach] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  async function handleSaveStatus() {
+  async function handleSave() {
     setSaving(true);
     try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      await supabase
-        .from("leads")
-        .update({ lifecycle_status: status, manual_notes: notes })
-        .eq("id", lead.id);
+      await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: lead.id,
+          lifecycle_status: status,
+          manual_notes: notes,
+          score: parseInt(manualScore) || lead.score,
+        }),
+      });
       router.refresh();
     } catch (err) {
       console.error("Save error:", err);
@@ -73,6 +100,45 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
     }
   }
 
+  async function handleGenerateOutreach() {
+    setGeneratingOutreach(true);
+    try {
+      const res = await fetch("/api/outreach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: lead.id }),
+      });
+      if (res.ok) {
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("Outreach error:", err);
+    } finally {
+      setGeneratingOutreach(false);
+    }
+  }
+
+  async function handleMarkContacted() {
+    await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: lead.id,
+        lifecycle_status: "contacted",
+      }),
+    });
+    router.refresh();
+  }
+
+  function copyToClipboard(text: string, field: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  }
+
+  const outreach = lead.outreach;
+  const scoreBreakdown = lead.score_breakdown || {};
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Business Info */}
@@ -85,11 +151,12 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
           <InfoRow
             label="Location"
             value={
-              [lead.city, lead.state].filter(Boolean).join(", ") || "—"
+              [lead.address || [lead.city, lead.state].filter(Boolean).join(", ")].filter(Boolean).join("") || "—"
             }
           />
+          <InfoRow label="Industry" value={lead.niche || lead.category || "—"} />
           <InfoRow label="Source" value={lead.source || "—"} />
-          <InfoRow label="Niche" value={lead.niche || "—"} />
+
           {lead.website && (
             <div className="flex items-center gap-2">
               <Globe className="h-4 w-4 text-zinc-500" />
@@ -104,8 +171,67 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
               </a>
             </div>
           )}
+
+          {lead.google_rating && (
+            <div className="flex items-center gap-2">
+              <Star className="h-4 w-4 text-yellow-500" />
+              <span className="text-sm text-zinc-300">
+                {lead.google_rating}/5 ({lead.google_review_count || 0} reviews)
+              </span>
+            </div>
+          )}
+
           {lead.page_title && (
             <InfoRow label="Page Title" value={lead.page_title} />
+          )}
+
+          {/* Tech Stack */}
+          {lead.tech_stack && lead.tech_stack.length > 0 && (
+            <div>
+              <p className="text-xs font-medium uppercase text-zinc-500 mb-2">Tech Stack</p>
+              <div className="flex flex-wrap gap-1.5">
+                {lead.tech_stack.map((tech) => (
+                  <Badge key={tech} variant="secondary">{tech}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tech Signals */}
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <TechSignal
+              icon={Shield}
+              label="SSL"
+              value={lead.has_ssl}
+              positive={true}
+            />
+            <TechSignal
+              icon={Smartphone}
+              label="Mobile"
+              value={lead.is_mobile_responsive}
+              positive={true}
+            />
+            <TechSignal
+              icon={BookOpen}
+              label="Blog"
+              value={lead.has_blog}
+              positive={false}
+            />
+            <TechSignal
+              icon={ShoppingCart}
+              label="E-commerce"
+              value={lead.has_ecommerce}
+              positive={true}
+            />
+          </div>
+
+          {lead.page_load_time_ms && (
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-zinc-500" />
+              <span className={`text-sm ${lead.page_load_time_ms > 3000 ? "text-red-400" : "text-emerald-400"}`}>
+                {(lead.page_load_time_ms / 1000).toFixed(1)}s load time
+              </span>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -119,30 +245,31 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {lead.email_1 && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-zinc-500" />
-              <span className="text-sm text-zinc-300">{lead.email_1}</span>
-            </div>
+          {(lead.email || lead.email_1) && (
+            <ContactRow
+              icon={Mail}
+              value={lead.email || lead.email_1 || ""}
+              onCopy={() => copyToClipboard(lead.email || lead.email_1 || "", "email")}
+              copied={copiedField === "email"}
+            />
           )}
           {lead.email_2 && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-zinc-500" />
-              <span className="text-sm text-zinc-300">{lead.email_2}</span>
-            </div>
+            <ContactRow
+              icon={Mail}
+              value={lead.email_2}
+              onCopy={() => copyToClipboard(lead.email_2!, "email2")}
+              copied={copiedField === "email2"}
+            />
           )}
-          {lead.phone_1 && (
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-zinc-500" />
-              <span className="text-sm text-zinc-300">{lead.phone_1}</span>
-            </div>
+          {(lead.phone || lead.phone_1) && (
+            <ContactRow
+              icon={Phone}
+              value={lead.phone || lead.phone_1 || ""}
+              onCopy={() => copyToClipboard(lead.phone || lead.phone_1 || "", "phone")}
+              copied={copiedField === "phone"}
+            />
           )}
-          {lead.phone_2 && (
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-zinc-500" />
-              <span className="text-sm text-zinc-300">{lead.phone_2}</span>
-            </div>
-          )}
+
           {lead.contact_page && (
             <a
               href={lead.contact_page}
@@ -156,101 +283,213 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
 
           {/* Social Links */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {lead.facebook && (
-              <a href={lead.facebook} target="_blank" rel="noopener noreferrer">
-                <Badge variant="secondary">Facebook</Badge>
-              </a>
+            {(lead.social_links?.facebook || lead.facebook) && (
+              <SocialBadge href={lead.social_links?.facebook || lead.facebook || ""} label="Facebook" />
             )}
-            {lead.instagram && (
-              <a href={lead.instagram} target="_blank" rel="noopener noreferrer">
-                <Badge variant="secondary">Instagram</Badge>
-              </a>
+            {(lead.social_links?.instagram || lead.instagram) && (
+              <SocialBadge href={lead.social_links?.instagram || lead.instagram || ""} label="Instagram" />
             )}
-            {lead.linkedin && (
-              <a href={lead.linkedin} target="_blank" rel="noopener noreferrer">
-                <Badge variant="secondary">LinkedIn</Badge>
-              </a>
+            {(lead.social_links?.linkedin || lead.linkedin) && (
+              <SocialBadge href={lead.social_links?.linkedin || lead.linkedin || ""} label="LinkedIn" />
+            )}
+            {(lead.social_links?.twitter || lead.twitter) && (
+              <SocialBadge href={lead.social_links?.twitter || lead.twitter || ""} label="X / Twitter" />
             )}
           </div>
 
-          {!lead.email_1 &&
-            !lead.phone_1 &&
-            lead.enrichment_status !== "completed" && (
-              <p className="text-sm text-zinc-500">
-                No contact info yet. Run enrichment to find contacts.
-              </p>
-            )}
+          {!lead.email && !lead.email_1 && !lead.phone && !lead.phone_1 && lead.enrichment_status !== "complete" && (
+            <p className="text-sm text-zinc-500">
+              No contact info yet. Run enrichment to find contacts.
+            </p>
+          )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEnrich}
-            disabled={enriching || !lead.website}
-            className="mt-3"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${enriching ? "animate-spin" : ""}`}
-            />
-            {enriching ? "Enriching..." : "Run Enrichment"}
-          </Button>
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEnrich}
+              disabled={enriching || !lead.website}
+            >
+              <RefreshCw className={`h-4 w-4 ${enriching ? "animate-spin" : ""}`} />
+              {enriching ? "Enriching..." : "Run Enrichment"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkContacted}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Mark Contacted
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Score & Reasons */}
+      {/* Score Breakdown */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
             Score:{" "}
-            <span
-              className={
-                lead.score >= 70
-                  ? "text-emerald-400"
-                  : lead.score >= 40
-                    ? "text-amber-400"
-                    : "text-red-400"
-              }
-            >
+            <span className={getScoreColor(lead.score)}>
               {lead.score}/100
+            </span>
+            <span className="ml-2 text-sm font-normal text-zinc-500">
+              {lead.score >= 70 ? "HOT" : lead.score >= 40 ? "WARM" : "COLD"}
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {lead.reasons && lead.reasons.length > 0 ? (
-            <ul className="space-y-1">
-              {lead.reasons.map((reason, i) => (
-                <li key={i} className="text-sm text-zinc-400">
-                  {reason}
-                </li>
+        <CardContent className="space-y-4">
+          {/* Score breakdown by factor */}
+          {Object.keys(scoreBreakdown).length > 0 && (
+            <div className="space-y-2">
+              {Object.entries(scoreBreakdown).map(([factor, points]) => (
+                <div key={factor} className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-400">{factor}</span>
+                  <span className={`text-sm font-mono font-bold ${Number(points) > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {Number(points) > 0 ? "+" : ""}{points}
+                  </span>
+                </div>
               ))}
-            </ul>
-          ) : (
+            </div>
+          )}
+
+          {/* Detailed reasons */}
+          {lead.reasons && lead.reasons.length > 0 && (
+            <div className="space-y-1 border-t border-zinc-800 pt-3">
+              {lead.reasons.map((reason, i) => (
+                <p key={i} className="text-xs text-zinc-500">{reason}</p>
+              ))}
+            </div>
+          )}
+
+          {!Object.keys(scoreBreakdown).length && (!lead.reasons || lead.reasons.length === 0) && (
             <p className="text-sm text-zinc-500">
               No scoring data. Run enrichment first.
             </p>
           )}
+
+          {/* Manual score adjustment */}
+          <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
+            <label className="text-xs text-zinc-500">Manual adjust:</label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={manualScore}
+              onChange={(e) => setManualScore(e.target.value)}
+              className="w-20 text-center"
+            />
+          </div>
         </CardContent>
       </Card>
 
-      {/* Outreach Insights */}
+      {/* AI Outreach */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Outreach Insights</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Zap className="h-5 w-5 text-emerald-500" />
+              Outreach
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateOutreach}
+              disabled={generatingOutreach}
+            >
+              <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
+              {generatingOutreach ? "Generating..." : "Generate AI Outreach"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {lead.pain_point_1 ? (
+          {outreach ? (
             <>
-              <InsightRow label="Pain Point 1" value={lead.pain_point_1} />
-              <InsightRow label="Pain Point 2" value={lead.pain_point_2} />
-              <InsightRow label="Offer Angle" value={lead.offer_angle} />
-              <InsightRow
-                label="Suggested First Line"
-                value={lead.suggested_first_line}
-              />
+              {/* Pain Points */}
+              {outreach.pain_points && outreach.pain_points.length > 0 && (
+                <OutreachSection title="Pain Points">
+                  <ul className="space-y-1">
+                    {outreach.pain_points.map((point, i) => (
+                      <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
+                        <span className="text-red-400 mt-0.5">•</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </OutreachSection>
+              )}
+
+              {/* Offer Angle */}
+              {outreach.offer_angle && (
+                <OutreachSection title="Offer Angle">
+                  <p className="text-sm text-zinc-300">{outreach.offer_angle}</p>
+                  {outreach.pricing_tier && (
+                    <Badge variant="success" className="mt-1">{outreach.pricing_tier}</Badge>
+                  )}
+                </OutreachSection>
+              )}
+
+              {/* Cold Email */}
+              {outreach.cold_email && (
+                <CopyableSection
+                  title="Cold Email"
+                  content={outreach.cold_email}
+                  onCopy={() => copyToClipboard(outreach.cold_email || "", "cold_email")}
+                  copied={copiedField === "cold_email"}
+                />
+              )}
+
+              {/* LinkedIn DM */}
+              {outreach.linkedin_dm && (
+                <CopyableSection
+                  title="LinkedIn DM"
+                  content={outreach.linkedin_dm}
+                  onCopy={() => copyToClipboard(outreach.linkedin_dm || "", "linkedin_dm")}
+                  copied={copiedField === "linkedin_dm"}
+                />
+              )}
+
+              {/* Follow-up Email */}
+              {outreach.follow_up_email && (
+                <CopyableSection
+                  title="Follow-up Email (5 days later)"
+                  content={outreach.follow_up_email}
+                  onCopy={() => copyToClipboard(outreach.follow_up_email || "", "follow_up")}
+                  copied={copiedField === "follow_up"}
+                />
+              )}
             </>
           ) : (
-            <p className="text-sm text-zinc-500">
-              Run enrichment to generate outreach insights.
-            </p>
+            <>
+              {/* Legacy insights */}
+              {lead.pain_point_1 ? (
+                <div className="space-y-3">
+                  <OutreachSection title="Pain Points">
+                    <p className="text-sm text-zinc-300">{lead.pain_point_1}</p>
+                    {lead.pain_point_2 && (
+                      <p className="text-sm text-zinc-300">{lead.pain_point_2}</p>
+                    )}
+                  </OutreachSection>
+                  {lead.offer_angle && (
+                    <OutreachSection title="Offer Angle">
+                      <p className="text-sm text-zinc-300">{lead.offer_angle}</p>
+                    </OutreachSection>
+                  )}
+                  {lead.suggested_first_line && (
+                    <CopyableSection
+                      title="Suggested First Line"
+                      content={lead.suggested_first_line}
+                      onCopy={() => copyToClipboard(lead.suggested_first_line || "", "first_line")}
+                      copied={copiedField === "first_line"}
+                    />
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-500">
+                  Run enrichment or click "Generate AI Outreach" to create personalized outreach.
+                </p>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -267,18 +506,21 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
             </label>
             <Select
               value={status}
-              onChange={(e) =>
-                setStatus(e.target.value as LifecycleStatus)
-              }
+              onChange={(e) => setStatus(e.target.value as LifecycleStatus)}
               className="w-48"
             >
               {LIFECYCLE_OPTIONS.map((s) => (
                 <option key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                 </option>
               ))}
             </Select>
             <LifecycleStatusBadge status={status} />
+            {lead.contacted_at && (
+              <span className="text-xs text-zinc-500">
+                Contacted: {formatDate(lead.contacted_at)}
+              </span>
+            )}
           </div>
 
           <div>
@@ -292,12 +534,45 @@ export function LeadDetailCard({ lead }: { lead: Lead }) {
             />
           </div>
 
-          <Button onClick={handleSaveStatus} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving}>
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </CardContent>
       </Card>
+
+      {/* Activity Log */}
+      {activityLog.length > 0 && (
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Activity Log</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {activityLog.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between border-b border-zinc-800/50 py-2 last:border-0"
+                >
+                  <div>
+                    <span className="text-sm text-zinc-300 capitalize">
+                      {entry.action.replace(/_/g, " ")}
+                    </span>
+                    {entry.details && (
+                      <span className="text-xs text-zinc-500 ml-2">
+                        {JSON.stringify(entry.details).slice(0, 80)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {formatDate(entry.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -311,18 +586,120 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InsightRow({
+function ContactRow({
+  icon: Icon,
+  value,
+  onCopy,
+  copied,
+}: {
+  icon: typeof Mail;
+  value: string;
+  onCopy: () => void;
+  copied: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between group">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-zinc-500" />
+        <span className="text-sm text-zinc-300">{value}</span>
+      </div>
+      <button
+        onClick={onCopy}
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-emerald-400" />
+        ) : (
+          <Copy className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function SocialBadge({ href, label }: { href: string; label: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      <Badge variant="secondary" className="hover:bg-zinc-700 transition-colors">
+        {label}
+      </Badge>
+    </a>
+  );
+}
+
+function TechSignal({
+  icon: Icon,
   label,
   value,
+  positive,
 }: {
+  icon: typeof Shield;
   label: string;
-  value: string | null;
+  value: boolean | null;
+  positive: boolean;
 }) {
-  if (!value) return null;
+  if (value === null || value === undefined) return null;
+
+  const isGood = positive ? value : !value;
+
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className={`h-3.5 w-3.5 ${isGood ? "text-emerald-500" : "text-red-400"}`} />
+      <span className={`text-xs ${isGood ? "text-emerald-400" : "text-red-400"}`}>
+        {value ? `Has ${label}` : `No ${label}`}
+      </span>
+    </div>
+  );
+}
+
+function OutreachSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase text-zinc-500">{label}</p>
-      <p className="text-sm text-zinc-300">{value}</p>
+      <p className="text-xs font-medium uppercase text-zinc-500 mb-1">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function CopyableSection({
+  title,
+  content,
+  onCopy,
+  copied,
+}: {
+  title: string;
+  content: string;
+  onCopy: () => void;
+  copied: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium uppercase text-zinc-500">{title}</p>
+        <button
+          onClick={onCopy}
+          className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-emerald-400" />
+              <span className="text-emerald-400">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              Copy
+            </>
+          )}
+        </button>
+      </div>
+      <p className="text-sm text-zinc-300 whitespace-pre-wrap">{content}</p>
     </div>
   );
 }

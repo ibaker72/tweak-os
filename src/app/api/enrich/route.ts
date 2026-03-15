@@ -3,12 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { enrichWebsite } from "@/lib/leads/enrichment";
 import { scoreLead } from "@/lib/leads/scoring";
 import { generateInsights } from "@/lib/leads/insights";
+import { generateOutreach } from "@/lib/leads/outreach";
 import { getLeadById } from "@/lib/leads/queries";
 import {
   updateLeadEnrichment,
   markLeadEnrichmentFailed,
   createEnrichmentJob,
   updateEnrichmentJob,
+  logActivity,
 } from "@/lib/leads/mutations";
 
 export async function POST(request: NextRequest) {
@@ -46,10 +48,10 @@ export async function POST(request: NextRequest) {
       started_at: new Date().toISOString(),
     });
 
-    // Update lead status
+    // Update lead status to crawling
     await supabase
       .from("leads")
-      .update({ enrichment_status: "in_progress" })
+      .update({ enrichment_status: "crawling" })
       .eq("id", lead_id);
 
     try {
@@ -60,14 +62,38 @@ export async function POST(request: NextRequest) {
       const scoreResult = scoreLead(enrichmentResult, {
         website: lead.website,
         niche: lead.niche,
+        city: lead.city,
+        state: lead.state,
+        google_rating: lead.google_rating,
+        google_review_count: lead.google_review_count,
       });
 
-      // Generate insights
-      const insights = generateInsights(enrichmentResult, {
-        business_name: lead.business_name,
-        niche: lead.niche,
-        website: lead.website,
-      });
+      // Generate AI outreach if score >= 40 and OpenAI key is configured
+      let outreachData = null;
+      if (scoreResult.score >= 40 && process.env.OPENAI_API_KEY) {
+        try {
+          outreachData = await generateOutreach(lead, enrichmentResult);
+        } catch (err) {
+          console.error("Outreach generation failed:", err);
+          // Fall back to rule-based insights
+        }
+      }
+
+      // Generate rule-based insights as fallback
+      if (!outreachData) {
+        const insights = generateInsights(enrichmentResult, {
+          business_name: lead.business_name,
+          niche: lead.niche,
+          website: lead.website,
+        });
+        outreachData = {
+          pain_points: [insights.pain_point_1, insights.pain_point_2],
+          offer_angle: insights.offer_angle,
+          cold_email: insights.suggested_first_line,
+          linkedin_dm: "",
+          follow_up_email: "",
+        };
+      }
 
       // Save everything
       await updateLeadEnrichment(
@@ -75,7 +101,7 @@ export async function POST(request: NextRequest) {
         lead_id,
         enrichmentResult,
         scoreResult,
-        insights
+        outreachData
       );
 
       await updateEnrichmentJob(supabase, jobId, {
@@ -83,17 +109,25 @@ export async function POST(request: NextRequest) {
         completed_at: new Date().toISOString(),
       });
 
+      // Log activity
+      await logActivity(supabase, lead_id, "enriched", {
+        score: scoreResult.score,
+        tech_stack: enrichmentResult.tech_stack,
+        emails_found: enrichmentResult.emails.length,
+        phones_found: enrichmentResult.phones.length,
+      });
+
       return NextResponse.json({
         success: true,
         enrichment: enrichmentResult,
         score: scoreResult,
-        insights,
+        outreach: outreachData,
       });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Enrichment failed";
 
-      await markLeadEnrichmentFailed(supabase, lead_id);
+      await markLeadEnrichmentFailed(supabase, lead_id, errorMessage);
       await updateEnrichmentJob(supabase, jobId, {
         status: "failed",
         error_message: errorMessage,

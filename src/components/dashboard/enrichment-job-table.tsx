@@ -46,7 +46,7 @@ export function EnrichmentJobTable({ jobs }: { jobs: EnrichmentJob[] }) {
                 {job.lead_id.slice(0, 8)}
               </td>
               <td className="px-4 py-3 text-center">
-                <EnrichmentStatusBadge status={job.status} />
+                <EnrichmentStatusBadge status={job.status as "pending" | "crawling" | "complete" | "failed"} />
               </td>
               <td className="px-4 py-3 text-sm text-red-400">
                 {job.error_message || "—"}

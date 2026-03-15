@@ -112,11 +112,11 @@ export function DiscoveryResultsTable({
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Website
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Source
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Rating
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Niche
+                Source
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Status
@@ -174,11 +174,18 @@ export function DiscoveryResultsTable({
                       <span className="text-zinc-500">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-zinc-400">
-                    {result.source || "—"}
+                  <td className="px-4 py-3 text-center text-sm text-zinc-400">
+                    {result.google_rating ? (
+                      <span>
+                        <span className="text-yellow-500">{result.google_rating}</span>
+                        {result.google_review_count ? (
+                          <span className="text-zinc-500 text-xs"> ({result.google_review_count})</span>
+                        ) : null}
+                      </span>
+                    ) : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-zinc-400">
-                    {result.niche || "—"}
+                    {result.source || "—"}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {isImported ? (

@@ -8,6 +8,7 @@ import {
   importDiscoveryResults,
 } from "@/lib/leads/mutations";
 import { getDiscoveryResults } from "@/lib/leads/queries";
+import { trackApiUsage } from "@/lib/leads/api-usage";
 import { z } from "zod";
 
 const discoveryInputSchema = z.object({
@@ -15,8 +16,9 @@ const discoveryInputSchema = z.object({
   city: z.string().default(""),
   state: z.string().default(""),
   keyword: z.string().default(""),
-  source: z.enum(["manual", "url_list", "yelp"]).default("url_list"),
+  source: z.enum(["manual", "url_list", "google_places", "google_search"]).default("google_places"),
   urls: z.string().optional(),
+  radius: z.number().optional(),
 });
 
 const importSchema = z.object({
@@ -34,6 +36,13 @@ export async function POST(request: NextRequest) {
     const jobId = await createDiscoveryJob(supabase, input);
 
     try {
+      // Track API usage
+      if (input.source === "google_places") {
+        await trackApiUsage(supabase, "google_places", "textsearch");
+      } else if (input.source === "google_search") {
+        await trackApiUsage(supabase, "google_search", "search");
+      }
+
       // Run discovery
       const results = await runDiscovery(input);
 

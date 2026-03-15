@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
 
-    // Parse filters (but override pagination to get all matching)
     const filters = leadFilterSchema.parse({
       ...searchParams,
       page: 1,
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
       query = query.eq("enrichment_status", filters.enrichment_status);
     }
     if (filters.niche) {
-      query = query.eq("niche", filters.niche);
+      query = query.ilike("niche", `%${filters.niche}%`);
     }
     if (filters.min_score !== undefined) {
       query = query.gte("score", filters.min_score);
@@ -42,29 +41,60 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
+    const exportType = searchParams.export_type;
+
+    if (exportType === "outreach") {
+      // Export outreach emails as batch
+      const outreachData = (data ?? [])
+        .filter((lead) => lead.outreach?.cold_email)
+        .map((lead) => ({
+          business_name: lead.business_name,
+          email: lead.email || lead.email_1,
+          cold_email: lead.outreach?.cold_email,
+          linkedin_dm: lead.outreach?.linkedin_dm,
+          follow_up_email: lead.outreach?.follow_up_email,
+          offer_angle: lead.outreach?.offer_angle,
+        }));
+
+      const csv = leadsToCSV(outreachData);
+
+      return new NextResponse(csv, {
+        headers: {
+          "Content-Type": "text/csv",
+          "Content-Disposition": `attachment; filename="outreach-export-${Date.now()}.csv"`,
+        },
+      });
+    }
+
+    // Default: full lead export
     const exportFields = (data ?? []).map((lead) => ({
       business_name: lead.business_name,
+      website: lead.website,
+      email: lead.email || lead.email_1,
+      phone: lead.phone || lead.phone_1,
       city: lead.city,
       state: lead.state,
-      website: lead.website,
+      industry: lead.niche,
+      category: lead.category,
       source: lead.source,
-      niche: lead.niche,
       lifecycle_status: lead.lifecycle_status,
       enrichment_status: lead.enrichment_status,
-      page_title: lead.page_title,
-      email_1: lead.email_1,
-      email_2: lead.email_2,
-      phone_1: lead.phone_1,
-      phone_2: lead.phone_2,
-      contact_page: lead.contact_page,
-      facebook: lead.facebook,
-      instagram: lead.instagram,
-      linkedin: lead.linkedin,
       score: lead.score,
-      pain_point_1: lead.pain_point_1,
-      pain_point_2: lead.pain_point_2,
-      offer_angle: lead.offer_angle,
-      suggested_first_line: lead.suggested_first_line,
+      tech_stack: (lead.tech_stack || []).join(", "),
+      has_ssl: lead.has_ssl,
+      is_mobile_responsive: lead.is_mobile_responsive,
+      has_blog: lead.has_blog,
+      has_ecommerce: lead.has_ecommerce,
+      page_load_time_ms: lead.page_load_time_ms,
+      google_rating: lead.google_rating,
+      google_review_count: lead.google_review_count,
+      facebook: lead.social_links?.facebook || lead.facebook,
+      instagram: lead.social_links?.instagram || lead.instagram,
+      linkedin: lead.social_links?.linkedin || lead.linkedin,
+      twitter: lead.social_links?.twitter || lead.twitter,
+      pain_points: lead.outreach?.pain_points?.join("; "),
+      offer_angle: lead.outreach?.offer_angle || lead.offer_angle,
+      cold_email: lead.outreach?.cold_email,
       manual_notes: lead.manual_notes,
     }));
 
