@@ -204,16 +204,16 @@ export default function OpportunitiesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Opportunities</h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Opportunities</h1>
+        <p className="mt-1 text-sm text-zinc-400">
           Discover keywords and topics your potential clients are searching for
         </p>
       </div>
 
       {/* Search bar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="relative flex-1 sm:max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <Input
             placeholder="Enter a seed keyword..."
             value={seedKeyword}
@@ -277,9 +277,9 @@ export default function OpportunitiesPage() {
 
       {/* Results table */}
       {!loading && !discovering && opportunities.length > 0 && (
-        <div className="rounded-xl border border-zinc-800 overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-zinc-800">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[800px] text-sm">
               <thead>
                 <tr className="bg-zinc-900/80 border-b border-zinc-800">
                   <th className="p-3 text-left">
@@ -413,8 +413,8 @@ export default function OpportunitiesPage() {
 
       {/* Empty state */}
       {!loading && !discovering && opportunities.length === 0 && !error && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-16 text-center">
-          <Search className="h-12 w-12 text-zinc-700 mx-auto mb-4" />
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center sm:p-16">
+          <Search className="mx-auto mb-4 h-12 w-12 text-zinc-700" />
           <h3 className="text-lg font-medium text-zinc-300 mb-1">
             Enter a seed keyword to discover opportunities
           </h3>

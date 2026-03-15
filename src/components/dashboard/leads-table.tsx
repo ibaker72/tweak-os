@@ -68,7 +68,6 @@ export function LeadsTable({ leads }: LeadsTableProps) {
       } else if (bulkAction === "export") {
         window.open("/api/exports", "_blank");
       } else {
-        // Status change
         await fetch("/api/leads", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -87,7 +86,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
 
   if (leads.length === 0) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-12 text-center">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center sm:p-12">
         <p className="text-sm text-zinc-400">No leads found</p>
       </div>
     );
@@ -97,14 +96,14 @@ export function LeadsTable({ leads }: LeadsTableProps) {
     <div className="space-y-3">
       {/* Bulk Actions */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 sm:gap-3 sm:px-4">
           <span className="text-sm text-zinc-300">
             {selected.size} selected
           </span>
           <Select
             value={bulkAction}
             onChange={(e) => setBulkAction(e.target.value)}
-            className="w-44 text-xs"
+            className="w-40 text-xs sm:w-44"
           >
             <option value="">Choose action...</option>
             <option value="contacted">Mark Contacted</option>
@@ -128,128 +127,130 @@ export function LeadsTable({ leads }: LeadsTableProps) {
       )}
 
       <div className="overflow-hidden rounded-xl border border-zinc-800">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/80">
-              <th className="w-10 px-3 py-3">
-                <button
-                  onClick={toggleSelectAll}
-                  className="text-zinc-500 hover:text-zinc-300"
-                >
-                  {selected.size === leads.length ? (
-                    <CheckSquare className="h-4 w-4" />
-                  ) : (
-                    <Square className="h-4 w-4" />
-                  )}
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Business
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Score
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Location
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Industry
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Tech Stack
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Contact
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/50">
-            {leads.map((lead) => (
-              <tr
-                key={lead.id}
-                className="cursor-pointer bg-zinc-950 transition-colors hover:bg-zinc-900/50"
-              >
-                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px]">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/80">
+                <th className="w-10 px-3 py-3">
                   <button
-                    onClick={() => toggleSelect(lead.id)}
+                    onClick={toggleSelectAll}
                     className="text-zinc-500 hover:text-zinc-300"
                   >
-                    {selected.has(lead.id) ? (
-                      <CheckSquare className="h-4 w-4 text-emerald-500" />
+                    {selected.size === leads.length ? (
+                      <CheckSquare className="h-4 w-4" />
                     ) : (
                       <Square className="h-4 w-4" />
                     )}
                   </button>
-                </td>
-                <td
-                  className="px-4 py-3"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  <div>
-                    <p className="text-sm font-medium text-zinc-50">
-                      {truncate(lead.business_name, 30)}
-                    </p>
-                    {lead.website && (
-                      <p className="text-xs text-zinc-500">
-                        {truncate(lead.website.replace(/https?:\/\//, ""), 25)}
-                      </p>
-                    )}
-                  </div>
-                </td>
-                <td
-                  className="px-4 py-3 text-center"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  <ScoreIndicator score={lead.score} />
-                </td>
-                <td
-                  className="px-4 py-3 text-sm text-zinc-400"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  {[lead.city, lead.state].filter(Boolean).join(", ") || "—"}
-                </td>
-                <td
-                  className="px-4 py-3 text-sm text-zinc-400"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  {lead.niche || "—"}
-                </td>
-                <td
-                  className="px-4 py-3"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  <div className="flex flex-wrap gap-1">
-                    {(lead.tech_stack || []).slice(0, 2).map((tech) => (
-                      <Badge key={tech} variant="secondary" className="text-[10px] px-1.5 py-0">
-                        {tech}
-                      </Badge>
-                    ))}
-                    {(lead.tech_stack || []).length > 2 && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        +{lead.tech_stack.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                </td>
-                <td
-                  className="px-4 py-3 text-center"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  <LifecycleStatusBadge status={lead.lifecycle_status} />
-                </td>
-                <td
-                  className="px-4 py-3 text-sm text-zinc-400"
-                  onClick={() => router.push(`/leads/${lead.id}`)}
-                >
-                  {lead.email || lead.email_1 || lead.phone || lead.phone_1 || "—"}
-                </td>
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
+                  Business
+                </th>
+                <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
+                  Score
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
+                  Location
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
+                  Industry
+                </th>
+                <th className="hidden px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 md:table-cell sm:px-4">
+                  Tech Stack
+                </th>
+                <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
+                  Status
+                </th>
+                <th className="hidden px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 lg:table-cell sm:px-4">
+                  Contact
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/50">
+              {leads.map((lead) => (
+                <tr
+                  key={lead.id}
+                  className="cursor-pointer bg-zinc-950 transition-colors hover:bg-zinc-900/50"
+                >
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => toggleSelect(lead.id)}
+                      className="text-zinc-500 hover:text-zinc-300"
+                    >
+                      {selected.has(lead.id) ? (
+                        <CheckSquare className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </button>
+                  </td>
+                  <td
+                    className="px-3 py-3 sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-zinc-50">
+                        {truncate(lead.business_name, 30)}
+                      </p>
+                      {lead.website && (
+                        <p className="text-xs text-zinc-500">
+                          {truncate(lead.website.replace(/https?:\/\//, ""), 25)}
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                  <td
+                    className="px-3 py-3 text-center sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    <ScoreIndicator score={lead.score} />
+                  </td>
+                  <td
+                    className="px-3 py-3 text-sm text-zinc-400 sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    {[lead.city, lead.state].filter(Boolean).join(", ") || "—"}
+                  </td>
+                  <td
+                    className="px-3 py-3 text-sm text-zinc-400 sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    {lead.niche || "—"}
+                  </td>
+                  <td
+                    className="hidden px-3 py-3 md:table-cell sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    <div className="flex flex-wrap gap-1">
+                      {(lead.tech_stack || []).slice(0, 2).map((tech) => (
+                        <Badge key={tech} variant="secondary" className="px-1.5 py-0 text-[10px]">
+                          {tech}
+                        </Badge>
+                      ))}
+                      {(lead.tech_stack || []).length > 2 && (
+                        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                          +{lead.tech_stack.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td
+                    className="px-3 py-3 text-center sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    <LifecycleStatusBadge status={lead.lifecycle_status} />
+                  </td>
+                  <td
+                    className="hidden px-3 py-3 text-sm text-zinc-400 lg:table-cell sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    {lead.email || lead.email_1 || lead.phone || lead.phone_1 || "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -68,10 +68,10 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Content Pipeline</h1>
-          <p className="text-sm text-zinc-400 mt-1">Track content through each stage</p>
+          <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Content Pipeline</h1>
+          <p className="mt-1 text-sm text-zinc-400">Track content through each stage</p>
         </div>
         <Button size="sm" onClick={() => router.push("/growth/drafts/new")}>
           <FileText className="h-4 w-4" />
@@ -115,8 +115,9 @@ export default function PipelinePage() {
           action={{ label: "New Draft", href: "/growth/drafts/new" }}
         />
       ) : (
-        <div className="rounded-xl border border-zinc-800 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-hidden rounded-xl border border-zinc-800">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="bg-zinc-900/80 border-b border-zinc-800">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">Title</th>
@@ -162,6 +163,7 @@ export default function PipelinePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

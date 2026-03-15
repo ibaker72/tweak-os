@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Bell, Settings, LogOut } from "lucide-react";
+import { Search, Bell, Settings, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { ActivityFeed, type Activity } from "./ActivityFeed";
@@ -17,6 +17,7 @@ interface TopbarProps {
   title?: string;
   breadcrumbs?: Breadcrumb[];
   onCommandPaletteOpen?: () => void;
+  onMenuToggle?: () => void;
   activities?: Activity[];
 }
 
@@ -24,6 +25,7 @@ export function Topbar({
   title,
   breadcrumbs = [],
   onCommandPaletteOpen,
+  onMenuToggle,
   activities = [],
 }: TopbarProps) {
   const router = useRouter();
@@ -47,11 +49,20 @@ export function Topbar({
   }
 
   return (
-    <header className="fixed top-0 left-64 right-0 z-30 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-6 backdrop-blur-sm">
-      {/* Left: Title + Breadcrumbs */}
-      <div className="flex items-center gap-2">
+    <header className="fixed top-0 right-0 z-30 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-4 backdrop-blur-sm left-0 lg:left-64 sm:px-6">
+      {/* Left: Menu trigger + Title/Breadcrumbs */}
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Hamburger menu: visible below lg */}
+        <button
+          onClick={onMenuToggle}
+          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 lg:hidden"
+          aria-label="Toggle navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
         {breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1 text-sm">
+          <nav className="flex items-center gap-1 text-sm min-w-0 truncate">
             {breadcrumbs.map((crumb, i) => {
               const isLast = i === breadcrumbs.length - 1;
               return (
@@ -60,13 +71,14 @@ export function Topbar({
                   {crumb.href && !isLast ? (
                     <Link
                       href={crumb.href}
-                      className="text-zinc-500 transition-colors hover:text-zinc-300"
+                      className="text-zinc-500 transition-colors hover:text-zinc-300 truncate"
                     >
                       {crumb.label}
                     </Link>
                   ) : (
                     <span
                       className={cn(
+                        "truncate",
                         isLast ? "text-zinc-200" : "text-zinc-500"
                       )}
                     >
@@ -79,16 +91,16 @@ export function Topbar({
           </nav>
         )}
         {title && !breadcrumbs.length && (
-          <h1 className="text-sm font-medium text-zinc-200">{title}</h1>
+          <h1 className="text-sm font-medium text-zinc-200 truncate">{title}</h1>
         )}
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         {/* Cmd+K Search Trigger */}
         <button
           onClick={onCommandPaletteOpen}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300 sm:px-3"
         >
           <Search className="h-4 w-4" />
           <kbd className="hidden rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline-block">

@@ -107,8 +107,8 @@ export default function PublishQueuePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Publish Queue</h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Publish Queue</h1>
+        <p className="mt-1 text-sm text-zinc-400">
           Content ready to go live — {drafts.length} item{drafts.length !== 1 ? "s" : ""}
         </p>
       </div>
@@ -123,16 +123,16 @@ export default function PublishQueuePage() {
       ) : (
         <div className="space-y-3">
           {drafts.map((draft) => (
-            <div key={draft.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-              <div className="flex items-center justify-between">
+            <div key={draft.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 sm:p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-medium text-zinc-200 truncate">{draft.title}</h3>
-                  <div className="flex items-center gap-3 mt-1">
+                  <h3 className="truncate text-sm font-medium text-zinc-200">{draft.title}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
                     {draft.opportunity?.keyword && (
                       <span className="text-xs text-zinc-500">{draft.opportunity.keyword}</span>
                     )}
                     {draft.scheduled_for && (
-                      <span className="text-xs text-blue-400 flex items-center gap-1">
+                      <span className="flex items-center gap-1 text-xs text-blue-400">
                         <CalendarClock className="h-3 w-3" />
                         {formatDate(draft.scheduled_for)}
                       </span>
@@ -141,7 +141,7 @@ export default function PublishQueuePage() {
                     <StatusBadge status={draft.status} size="sm" />
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-4">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <Button
                     size="sm"
                     onClick={() => {
@@ -161,25 +161,25 @@ export default function PublishQueuePage() {
                     }}
                   >
                     <CalendarClock className="h-3 w-3" />
-                    Reschedule
+                    <span className="hidden sm:inline">Reschedule</span>
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => handleSendToReview(draft.id)}>
                     <ArrowLeft className="h-3 w-3" />
-                    Review
+                    <span className="hidden sm:inline">Review</span>
                   </Button>
                 </div>
               </div>
 
               {/* Publish form */}
               {publishingId === draft.id && (
-                <div className="mt-3 pt-3 border-t border-zinc-800 flex items-end gap-3">
+                <div className="mt-3 flex flex-col gap-2 border-t border-zinc-800 pt-3 sm:flex-row sm:items-end sm:gap-3">
                   <div className="flex-1">
                     <label className="text-xs text-zinc-500">Published URL</label>
                     <Input
                       value={publishUrl}
                       onChange={(e) => setPublishUrl(e.target.value)}
                       placeholder="https://tweakandbuild.com/blog/..."
-                      className="mt-1 text-xs font-mono"
+                      className="mt-1 font-mono text-xs"
                     />
                   </div>
                   <Button size="sm" onClick={() => handlePublish(draft.id)} disabled={!publishUrl.trim()}>
@@ -191,7 +191,7 @@ export default function PublishQueuePage() {
 
               {/* Reschedule form */}
               {reschedulingId === draft.id && (
-                <div className="mt-3 pt-3 border-t border-zinc-800 flex items-end gap-3">
+                <div className="mt-3 flex flex-col gap-2 border-t border-zinc-800 pt-3 sm:flex-row sm:items-end sm:gap-3">
                   <div>
                     <label className="text-xs text-zinc-500">New Date</label>
                     <Input

@@ -19,10 +19,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Settings</h1>
-        <p className="text-sm text-zinc-400 mt-1">Manage your Tweak OS configuration</p>
+        <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Settings</h1>
+        <p className="mt-1 text-sm text-zinc-400">Manage your Tweak OS configuration</p>
       </div>
 
       {/* API Keys */}
@@ -45,12 +45,12 @@ export default function SettingsPage() {
               { name: "GOOGLE_CUSTOM_SEARCH_API_KEY", description: "Used for Google Custom Search discovery" },
               { name: "NEXT_PUBLIC_SUPABASE_URL", description: "Supabase project URL" },
             ].map((key) => (
-              <div key={key.name} className="flex items-start justify-between rounded-lg bg-zinc-800/50 p-3">
-                <div>
-                  <p className="text-sm font-mono text-zinc-200">{key.name}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">{key.description}</p>
+              <div key={key.name} className="flex flex-col gap-2 rounded-lg bg-zinc-800/50 p-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-sm text-zinc-200">{key.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{key.description}</p>
                 </div>
-                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                <span className="shrink-0 self-start rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
                   Set via env
                 </span>
               </div>

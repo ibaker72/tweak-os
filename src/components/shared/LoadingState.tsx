@@ -86,9 +86,9 @@ function DetailSkeleton() {
 
 function EditorSkeleton() {
   return (
-    <div className="flex gap-4">
+    <div className="flex flex-col gap-4 lg:flex-row">
       {/* Main editor area */}
-      <div className="flex-1 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <div className="flex-1 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
         <SkeletonBar className="h-4 w-40" />
         <SkeletonBar className="h-48 w-full" />
         <div className="flex gap-2">
@@ -97,7 +97,7 @@ function EditorSkeleton() {
         </div>
       </div>
       {/* Sidebar */}
-      <div className="w-64 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <div className="w-full space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6 lg:w-64">
         <SkeletonBar className="h-4 w-24" />
         <SkeletonBar className="h-3 w-full" />
         <SkeletonBar className="h-3 w-3/4" />

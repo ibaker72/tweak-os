@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
@@ -33,6 +34,21 @@ export function AppShell({
   activities = [],
 }: AppShellProps) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleSidebarClose = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -46,12 +62,15 @@ export function AppShell({
               }
             : undefined
         }
+        mobileOpen={sidebarOpen}
+        onMobileClose={handleSidebarClose}
       />
 
       <Topbar
         title={title}
         breadcrumbs={breadcrumbs}
         onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
+        onMenuToggle={handleSidebarToggle}
         activities={activities}
       />
 
@@ -60,8 +79,11 @@ export function AppShell({
         onOpenChange={setCommandPaletteOpen}
       />
 
-      <main className="ml-64 pt-14">
-        <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
+      {/* Main content: offset by sidebar on lg+, full width below */}
+      <main className="pt-14 lg:ml-64">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          {children}
+        </div>
       </main>
     </div>
   );

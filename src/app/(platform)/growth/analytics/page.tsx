@@ -125,10 +125,10 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Analytics</h1>
-          <p className="text-sm text-zinc-400 mt-1">
+          <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Analytics</h1>
+          <p className="mt-1 text-sm text-zinc-400">
             Track performance of your published content
           </p>
         </div>
@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
 
       {/* Metric cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
           {[
             { label: "Impressions", value: stats.total_impressions.toLocaleString(), icon: Eye },
             { label: "Clicks", value: stats.total_clicks.toLocaleString(), icon: MousePointerClick },
@@ -148,12 +148,12 @@ export default function AnalyticsPage() {
             { label: "Avg Position", value: stats.avg_position > 0 ? stats.avg_position.toFixed(1) : "—", icon: BarChart3 },
             { label: "Conversions", value: String(stats.conversion_count), icon: UserCheck },
           ].map((card) => (
-            <div key={card.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <div key={card.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 sm:p-5">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-zinc-400">{card.label}</p>
-                <card.icon className="h-4 w-4 text-emerald-500" />
+                <p className="truncate text-xs text-zinc-400 sm:text-sm">{card.label}</p>
+                <card.icon className="h-3.5 w-3.5 shrink-0 text-emerald-500 sm:h-4 sm:w-4" />
               </div>
-              <p className="mt-2 text-2xl font-bold text-zinc-50">{card.value}</p>
+              <p className="mt-2 text-xl font-bold text-zinc-50 sm:text-2xl">{card.value}</p>
             </div>
           ))}
         </div>
@@ -198,7 +198,7 @@ export default function AnalyticsPage() {
               {/* TODO: Replace manual entry with GSC API — needs OAuth setup */}
               Enter data from Google Search Console and Google Analytics manually.
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
               <div>
                 <label className="text-sm font-medium text-zinc-400">Published Article</label>
                 <Select value={entryDraftId} onChange={(e) => setEntryDraftId(e.target.value)} className="mt-1">
@@ -213,7 +213,7 @@ export default function AnalyticsPage() {
                 <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} className="mt-1" />
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
               <div>
                 <label className="text-xs text-zinc-500">Impressions</label>
                 <Input type="number" value={entryImpressions} onChange={(e) => setEntryImpressions(e.target.value)} className="mt-1" placeholder="0" />
@@ -247,8 +247,9 @@ export default function AnalyticsPage() {
 
       {/* Performance table */}
       {performance.length > 0 ? (
-        <div className="rounded-xl border border-zinc-800 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-hidden rounded-xl border border-zinc-800">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="bg-zinc-900/80 border-b border-zinc-800">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">Article</th>
@@ -274,9 +275,10 @@ export default function AnalyticsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-16 text-center">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center sm:p-16">
           <BarChart3 className="h-12 w-12 text-zinc-700 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-zinc-300 mb-1">No performance data yet</h3>
           <p className="text-sm text-zinc-500">Publish content and add performance data to track your growth.</p>

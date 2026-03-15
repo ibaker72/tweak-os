@@ -13,9 +13,9 @@ interface SlidePanelProps {
 }
 
 const widthClasses: Record<"md" | "lg" | "xl", string> = {
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
+  md: "sm:max-w-md",
+  lg: "sm:max-w-lg",
+  xl: "sm:max-w-xl",
 };
 
 export function SlidePanel({
@@ -39,19 +39,19 @@ export function SlidePanel({
         >
           <div className="flex h-full flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
-              <Dialog.Title className="text-lg font-semibold text-zinc-100">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-4 sm:px-6">
+              <Dialog.Title className="text-base font-semibold text-zinc-100 sm:text-lg">
                 {title}
               </Dialog.Title>
               <Dialog.Close asChild>
-                <button className="rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+                <button className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
                   <X className="h-5 w-5" />
                   <span className="sr-only">Close</span>
                 </button>
               </Dialog.Close>
             </div>
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -201,7 +201,7 @@ export default function DiscoverPage() {
         description="Search for businesses using Google Places, Google Search, or paste URLs"
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-5 sm:gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -412,12 +412,12 @@ export default function DiscoverPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {manualRows.map((row, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                    <Input className="col-span-4" placeholder="Business name *" value={row.business_name} onChange={(e) => updateManualRow(i, "business_name", e.target.value)} />
-                    <Input className="col-span-2" placeholder="City" value={row.city} onChange={(e) => updateManualRow(i, "city", e.target.value)} />
-                    <Input className="col-span-1" placeholder="ST" value={row.state} onChange={(e) => updateManualRow(i, "state", e.target.value)} />
-                    <Input className="col-span-4" placeholder="website.com" value={row.website} onChange={(e) => updateManualRow(i, "website", e.target.value)} />
-                    <button onClick={() => removeManualRow(i)} className="col-span-1 text-center text-zinc-500 hover:text-red-400 transition-colors" type="button">&times;</button>
+                  <div key={i} className="grid grid-cols-2 gap-2 items-center rounded-lg border border-zinc-800 p-3 sm:grid-cols-12 sm:border-0 sm:p-0">
+                    <Input className="col-span-2 sm:col-span-4" placeholder="Business name *" value={row.business_name} onChange={(e) => updateManualRow(i, "business_name", e.target.value)} />
+                    <Input className="col-span-1 sm:col-span-2" placeholder="City" value={row.city} onChange={(e) => updateManualRow(i, "city", e.target.value)} />
+                    <Input className="col-span-1 sm:col-span-1" placeholder="ST" value={row.state} onChange={(e) => updateManualRow(i, "state", e.target.value)} />
+                    <Input className="col-span-2 sm:col-span-4" placeholder="website.com" value={row.website} onChange={(e) => updateManualRow(i, "website", e.target.value)} />
+                    <button onClick={() => removeManualRow(i)} className="col-span-2 text-center text-zinc-500 transition-colors hover:text-red-400 sm:col-span-1" type="button">&times;</button>
                   </div>
                 ))}
                 <Button variant="outline" size="sm" onClick={addManualRow}>

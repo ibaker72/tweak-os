@@ -85,17 +85,17 @@ export default function CalendarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Content Calendar</h1>
-        <p className="text-sm text-zinc-400 mt-1">Schedule and track your content publishing</p>
+        <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Content Calendar</h1>
+        <p className="mt-1 text-sm text-zinc-400">Schedule and track your content publishing</p>
       </div>
 
       {/* Calendar Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button variant="outline" size="sm" onClick={prevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-lg font-semibold text-zinc-100 min-w-[200px] text-center">{monthName}</h2>
+          <h2 className="min-w-[140px] text-center text-base font-semibold text-zinc-100 sm:min-w-[200px] sm:text-lg">{monthName}</h2>
           <Button variant="outline" size="sm" onClick={nextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -110,9 +110,9 @@ export default function CalendarPage() {
           <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-4">
+        <div className="grid gap-5 sm:gap-6 lg:grid-cols-4">
           {/* Calendar Grid */}
-          <div className="lg:col-span-3 rounded-xl border border-zinc-800 overflow-hidden">
+          <div className="overflow-hidden overflow-x-auto rounded-xl border border-zinc-800 lg:col-span-3">
             {/* Day headers */}
             <div className="grid grid-cols-7 bg-zinc-900/80 border-b border-zinc-800">
               {DAYS.map((day) => (
@@ -134,7 +134,7 @@ export default function CalendarPage() {
                     <div
                       key={di}
                       className={cn(
-                        "min-h-[80px] p-2 transition-colors",
+                        "min-h-[60px] p-1.5 transition-colors sm:min-h-[80px] sm:p-2",
                         day ? "cursor-pointer hover:bg-zinc-800/50" : "bg-zinc-950/50",
                         isSelected && "bg-zinc-800/70"
                       )}

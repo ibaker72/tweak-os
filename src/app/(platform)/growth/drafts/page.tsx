@@ -64,10 +64,10 @@ export default function DraftsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Drafts</h1>
-          <p className="text-sm text-zinc-400 mt-1">{drafts.length} total drafts</p>
+          <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Drafts</h1>
+          <p className="mt-1 text-sm text-zinc-400">{drafts.length} total drafts</p>
         </div>
         <Button size="sm" onClick={() => router.push("/growth/drafts/new")}>
           <Plus className="h-4 w-4" />
@@ -76,9 +76,9 @@ export default function DraftsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <Input
             placeholder="Search drafts..."
             value={searchQuery}
@@ -89,7 +89,7 @@ export default function DraftsPage() {
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-40"
+          className="w-full sm:w-40"
         >
           <option value="">All Statuses</option>
           {DRAFT_STATUSES.map((s) => (
@@ -106,8 +106,9 @@ export default function DraftsPage() {
           action={{ label: "New Draft", href: "/growth/drafts/new" }}
         />
       ) : (
-        <div className="rounded-xl border border-zinc-800 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-hidden rounded-xl border border-zinc-800">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="bg-zinc-900/80 border-b border-zinc-800">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">Title</th>
@@ -152,6 +153,7 @@ export default function DraftsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -10,14 +10,16 @@ export function DashboardHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between border-b border-zinc-800 pb-6">
+    <div className="flex flex-col gap-3 border-b border-zinc-800 pb-4 sm:flex-row sm:items-start sm:justify-between sm:pb-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-50">{title}</h1>
+        <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">{title}</h1>
         {description && (
           <p className="mt-1 text-sm text-zinc-400">{description}</p>
         )}
       </div>
-      {children && <div className="flex items-center gap-3">{children}</div>}
+      {children && (
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">{children}</div>
+      )}
     </div>
   );
 }

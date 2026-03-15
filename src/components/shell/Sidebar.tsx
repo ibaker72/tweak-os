@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,6 +16,7 @@ import {
   FileText,
   BarChart3,
   Settings,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,11 +60,12 @@ interface ApiUsageProps {
 }
 
 interface SidebarProps {
-  collapsed?: boolean;
   apiUsage?: ApiUsageProps;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
+export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
 
   const googleToday = apiUsage?.google_today ?? 847;
@@ -70,21 +73,28 @@ export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
   const openaiCost = apiUsage?.openai_cost ?? 2.14;
   const googlePercent = Math.min((googleToday / googleLimit) * 100, 100);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   function isActive(href: string): boolean {
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-zinc-950 transition-transform duration-200",
-        collapsed && "-translate-x-full"
-      )}
-    >
+  const sidebarContent = (
+    <>
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2.5 border-b border-zinc-800 px-5">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+      <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-5">
+        <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onMobileClose}>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500">
             <Zap className="h-4 w-4 text-white" />
           </div>
@@ -92,6 +102,14 @@ export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
             Tweak OS
           </span>
         </Link>
+        {/* Close button: visible only on mobile */}
+        <button
+          onClick={onMobileClose}
+          className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 lg:hidden"
+          aria-label="Close navigation"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -102,6 +120,7 @@ export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
           icon={LayoutDashboard}
           label="Dashboard"
           active={isActive("/dashboard")}
+          onClick={onMobileClose}
         />
 
         {/* Groups */}
@@ -117,6 +136,7 @@ export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
                 icon={item.icon}
                 label={item.label}
                 active={isActive(item.href)}
+                onClick={onMobileClose}
               />
             ))}
           </div>
@@ -131,6 +151,7 @@ export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
           icon={Settings}
           label="Settings"
           active={isActive("/settings")}
+          onClick={onMobileClose}
         />
       </nav>
 
@@ -166,7 +187,36 @@ export function Sidebar({ collapsed = false, apiUsage }: SidebarProps) {
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar: persistent, always visible at lg+ */}
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col bg-zinc-950 border-r border-zinc-800 lg:flex">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile sidebar: overlay drawer */}
+      {/* Backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden",
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={onMobileClose}
+        aria-hidden="true"
+      />
+      {/* Drawer */}
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-50 flex h-screen w-72 flex-col bg-zinc-950 border-r border-zinc-800 shadow-2xl transition-transform duration-300 ease-out lg:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
 
@@ -175,15 +225,18 @@ function NavLink({
   icon: Icon,
   label,
   active,
+  onClick,
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(
         "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
