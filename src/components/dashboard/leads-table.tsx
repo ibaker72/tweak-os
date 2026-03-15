@@ -186,7 +186,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </td>
                 <td
                   className="px-4 py-3"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   <div>
                     <p className="text-sm font-medium text-zinc-50">
@@ -201,25 +201,25 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </td>
                 <td
                   className="px-4 py-3 text-center"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   <ScoreIndicator score={lead.score} />
                 </td>
                 <td
                   className="px-4 py-3 text-sm text-zinc-400"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   {[lead.city, lead.state].filter(Boolean).join(", ") || "—"}
                 </td>
                 <td
                   className="px-4 py-3 text-sm text-zinc-400"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   {lead.niche || "—"}
                 </td>
                 <td
                   className="px-4 py-3"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   <div className="flex flex-wrap gap-1">
                     {(lead.tech_stack || []).slice(0, 2).map((tech) => (
@@ -236,13 +236,13 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </td>
                 <td
                   className="px-4 py-3 text-center"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   <LifecycleStatusBadge status={lead.lifecycle_status} />
                 </td>
                 <td
                   className="px-4 py-3 text-sm text-zinc-400"
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  onClick={() => router.push(`/leads/${lead.id}`)}
                 >
                   {lead.email || lead.email_1 || lead.phone || lead.phone_1 || "—"}
                 </td>

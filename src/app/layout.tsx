@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tweak & Build — Lead Finder",
-  description: "Internal lead finder and enrichment tool for Tweak & Build Studio",
+  title: "Tweak OS — Tweak & Build",
+  description: "Internal operating system for Tweak & Build Studio — leads, growth, and content management",
 };
 
 export default function RootLayout({

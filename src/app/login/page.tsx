@@ -42,7 +42,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-600">
             <Search className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-xl">Sign in to Lead Finder</CardTitle>
+          <CardTitle className="text-xl">Sign in to Tweak OS</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
