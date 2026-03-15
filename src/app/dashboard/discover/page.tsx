@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import type { DiscoveryResult, DiscoverySource } from "@/lib/leads/types";
+import { validateUrlList, type UrlValidationResult } from "@/lib/leads/discovery";
 import {
   Compass,
   Loader2,
@@ -19,6 +20,7 @@ import {
   Search,
   Globe,
   MapPin,
+  XCircle,
 } from "lucide-react";
 
 type ManualRow = {
@@ -41,6 +43,8 @@ export default function DiscoverPage() {
     { business_name: "", city: "", state: "", website: "" },
   ]);
 
+  const [urlWarnings, setUrlWarnings] = useState<UrlValidationResult[]>([]);
+
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<DiscoveryResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +52,33 @@ export default function DiscoverPage() {
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [saveSearchName, setSaveSearchName] = useState("");
 
+  function handleUrlsChange(value: string) {
+    setUrls(value);
+    // Validate on change (debounced by React batching)
+    if (value.trim()) {
+      const results = validateUrlList(value);
+      setUrlWarnings(results.filter((r) => !r.valid));
+    } else {
+      setUrlWarnings([]);
+    }
+  }
+
   async function handleDiscover() {
     setRunning(true);
     setError(null);
     setSuccessMsg(null);
     setResults([]);
+
+    // For URL list, pre-validate and block if all URLs are invalid
+    if (source === "url_list") {
+      const validated = validateUrlList(urls);
+      const validCount = validated.filter((v) => v.valid).length;
+      if (validated.length > 0 && validCount === 0) {
+        setError("All URLs were rejected. Please paste actual business website URLs, not directories or platforms.");
+        setRunning(false);
+        return;
+      }
+    }
 
     try {
       if (source === "manual") {
@@ -357,16 +383,41 @@ export default function DiscoverPage() {
                 <div>
                   <label className="text-sm font-medium text-zinc-400">
                     <Globe className="mr-1 inline h-3 w-3" />
-                    Website URLs <span className="text-zinc-600">(one per line)</span>
+                    Business Website URLs <span className="text-zinc-600">(one per line)</span>
                   </label>
                   <Textarea
                     rows={6}
                     placeholder={`example-plumber.com\nwww.dentist-office.com\nhttps://local-restaurant.com`}
                     value={urls}
-                    onChange={(e) => setUrls(e.target.value)}
-                    className="mt-1 font-mono text-xs"
+                    onChange={(e) => handleUrlsChange(e.target.value)}
+                    className={`mt-1 font-mono text-xs ${urlWarnings.length > 0 ? "border-amber-700" : ""}`}
                   />
+                  <p className="mt-1.5 text-xs text-zinc-500">
+                    Paste actual business websites — not directories like Yelp, Google, or social media profiles.
+                  </p>
                 </div>
+
+                {/* URL Validation Warnings */}
+                {urlWarnings.length > 0 && (
+                  <div className="rounded-lg border border-amber-900/60 bg-amber-950/20 px-3 py-2.5 space-y-1">
+                    <p className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3 w-3" />
+                      {urlWarnings.length} URL{urlWarnings.length !== 1 ? "s" : ""} will be skipped:
+                    </p>
+                    {urlWarnings.slice(0, 5).map((w, i) => (
+                      <p key={i} className="text-xs text-amber-500/80 flex items-center gap-1.5 pl-4">
+                        <XCircle className="h-3 w-3 shrink-0" />
+                        <span className="font-mono truncate">{w.url}</span>
+                        <span className="text-amber-600 shrink-0">— {w.reason}</span>
+                      </p>
+                    ))}
+                    {urlWarnings.length > 5 && (
+                      <p className="text-xs text-amber-600 pl-4">
+                        ...and {urlWarnings.length - 5} more
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
