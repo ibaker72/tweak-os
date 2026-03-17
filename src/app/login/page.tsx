@@ -55,6 +55,7 @@ export default function LoginPage() {
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                suppressHydrationWarning
                 required
                 className="mt-1"
               />
@@ -68,6 +69,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                suppressHydrationWarning
                 required
                 className="mt-1"
               />
@@ -75,7 +77,7 @@ export default function LoginPage() {
             {error && (
               <p className="text-sm text-red-400">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading} suppressHydrationWarning>
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>

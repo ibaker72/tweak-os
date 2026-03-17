@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Sparkles, FileText, Check, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import type { GrowthOpportunity, GrowthBrief, GeneratedBrief, BriefOutline } fro
 
 type Step = "keyword" | "brief" | "generating_draft";
 
-export default function NewDraftPage() {
+function NewDraftPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>("keyword");
@@ -304,5 +304,23 @@ export default function NewDraftPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function NewDraftPageFallback() {
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-center py-16 text-sm text-zinc-400">
+        Loading draft builder...
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function NewDraftPage() {
+  return (
+    <Suspense fallback={<NewDraftPageFallback />}>
+      <NewDraftPageContent />
+    </Suspense>
   );
 }
