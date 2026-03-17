@@ -63,6 +63,7 @@ export interface Lead {
   has_blog: boolean | null;
   has_ecommerce: boolean | null;
   page_load_time_ms: number | null;
+  performance_grade: string | null;
   social_links: SocialLinks;
   score: number;
   score_breakdown: ScoreBreakdown;
@@ -130,6 +131,7 @@ export interface EnrichmentResult {
   has_blog: boolean;
   has_ecommerce: boolean;
   page_load_time_ms: number | null;
+  performance_grade: string | null;
   last_modified: string | null;
 }
 
@@ -162,6 +164,8 @@ export interface DashboardStats {
   total_leads: number;
   enriched_leads: number;
   contacted_leads: number;
+  replied_leads: number;
+  booked_leads: number;
   failed_jobs: number;
   average_score: number;
   leads_by_status: Record<string, number>;
@@ -169,6 +173,7 @@ export interface DashboardStats {
   leads_this_week: number;
   leads_this_month: number;
   top_industries: { industry: string; count: number }[];
+  recent_leads: { id: string; business_name: string; score: number; city: string | null; state: string | null }[];
   api_usage: {
     google_places_today: number;
     google_search_today: number;

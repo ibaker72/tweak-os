@@ -6,20 +6,40 @@ import {
   Users, TrendingUp, Search, FileText, Plus, Upload,
   Compass, Loader2, ExternalLink, Calendar,
   BarChart3, Flame, Eye, MousePointerClick,
+  AlertCircle, CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
+interface ActionItem {
+  id: string;
+  label: string;
+  href: string;
+  priority: "high" | "medium" | "low";
+  count: number;
+}
+
+interface RecentLead {
+  id: string;
+  business_name: string;
+  score: number;
+  city: string | null;
+  state: string | null;
+}
+
 interface DashboardData {
   leads: {
     total_leads: number;
     enriched_leads: number;
     contacted_leads: number;
+    replied_leads: number;
+    booked_leads: number;
     average_score: number;
     leads_this_week: number;
     leads_by_score_tier: { hot: number; warm: number; cold: number };
+    recent_leads: RecentLead[];
     api_usage: {
       google_places_today: number;
       google_search_today: number;
@@ -46,12 +66,18 @@ interface DashboardData {
 
 export default function UnifiedDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/shared/stats")
-      .then((r) => r.json())
-      .then(setData)
+    Promise.all([
+      fetch("/api/shared/stats").then((r) => r.json()),
+      fetch("/api/shared/action-items").then((r) => r.json()).catch(() => ({ items: [] })),
+    ])
+      .then(([statsData, actionData]) => {
+        setData(statsData);
+        setActionItems(actionData.items ?? []);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -67,6 +93,7 @@ export default function UnifiedDashboardPage() {
   const leads = data?.leads;
   const growth = data?.growth;
   const activity = data?.recent_activity ?? [];
+  const recentLeads = leads?.recent_leads ?? [];
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -75,6 +102,52 @@ export default function UnifiedDashboardPage() {
         <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Dashboard</h1>
         <p className="mt-1 text-sm text-zinc-400">Cross-module overview of Tweak OS</p>
       </div>
+
+      {/* Action Items */}
+      <Card>
+        <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            Action Items
+            {actionItems.length > 0 && (
+              <Badge variant="secondary" className="ml-auto text-[10px] tabular-nums">
+                {actionItems.length}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          {actionItems.length > 0 ? (
+            <div className="space-y-1">
+              {actionItems.slice(0, 8).map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="group -mx-1 flex items-center gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-zinc-800/50"
+                >
+                  <div
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      item.priority === "high"
+                        ? "bg-red-500"
+                        : item.priority === "medium"
+                          ? "bg-amber-500"
+                          : "bg-blue-500"
+                    }`}
+                  />
+                  <span className="text-sm text-zinc-300 group-hover:text-zinc-100">
+                    {item.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 py-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <span className="text-sm text-zinc-400">You&apos;re all caught up</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Main grid: stacked on mobile, 3-col on lg */}
       <div className="grid gap-5 sm:gap-6 lg:grid-cols-3">
@@ -89,10 +162,12 @@ export default function UnifiedDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-                <MetricBlock label="Total Leads" value={leads?.total_leads ?? 0} />
-                <MetricBlock label="Hot Leads (70+)" value={leads?.leads_by_score_tier?.hot ?? 0} valueClass="text-red-400" />
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-6">
+                <MetricBlock label="Total" value={leads?.total_leads ?? 0} />
+                <MetricBlock label="Hot (70+)" value={leads?.leads_by_score_tier?.hot ?? 0} valueClass="text-red-400" />
                 <MetricBlock label="Contacted" value={leads?.contacted_leads ?? 0} />
+                <MetricBlock label="Replied" value={leads?.replied_leads ?? 0} valueClass="text-blue-400" />
+                <MetricBlock label="Booked" value={leads?.booked_leads ?? 0} valueClass="text-emerald-400" />
                 <MetricBlock label="Avg Score" value={leads?.average_score ?? 0} />
               </div>
               <div className="mt-4 border-t border-zinc-800 pt-4">
@@ -191,38 +266,51 @@ export default function UnifiedDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* API Usage */}
+          {/* Latest Leads */}
           <Card>
             <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
-              <CardTitle className="text-sm font-medium text-zinc-400">API Usage</CardTitle>
+              <CardTitle className="text-sm font-medium text-zinc-400">Latest Leads</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
-              <div className="space-y-3">
-                <div>
-                  <div className="mb-1 flex justify-between text-xs text-zinc-400">
-                    <span>Google Places (today)</span>
-                    <span>{leads?.api_usage?.google_places_today ?? 0}</span>
+              {recentLeads.length > 0 ? (
+                <div className="space-y-1">
+                  {recentLeads.map((lead) => (
+                    <Link
+                      key={lead.id}
+                      href={`/leads/${lead.id}`}
+                      className="group -mx-1 flex items-center gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-zinc-800/50"
+                    >
+                      <div
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                          lead.score >= 70
+                            ? "bg-red-500"
+                            : lead.score >= 40
+                              ? "bg-amber-500"
+                              : "bg-zinc-500"
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-zinc-200 group-hover:text-zinc-100">
+                          {lead.business_name}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {[lead.city, lead.state].filter(Boolean).join(", ") || "—"}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                  <div className="pt-2 border-t border-zinc-800">
+                    <Link
+                      href="/leads"
+                      className="text-sm text-emerald-400 transition-colors hover:text-emerald-300"
+                    >
+                      View all →
+                    </Link>
                   </div>
-                  <div className="h-1.5 rounded-full bg-zinc-800">
-                    <div
-                      className="h-1.5 rounded-full bg-emerald-500 transition-all"
-                      style={{ width: `${Math.min(((leads?.api_usage?.google_places_today ?? 0) / 10000) * 100, 100)}%` }}
-                    />
-                  </div>
                 </div>
-                <div className="flex justify-between text-xs text-zinc-400">
-                  <span>Google Search (today)</span>
-                  <span>{leads?.api_usage?.google_search_today ?? 0} / 100</span>
-                </div>
-                <div className="flex justify-between text-xs text-zinc-400">
-                  <span>OpenAI (month)</span>
-                  <span>{leads?.api_usage?.openai_this_month ?? 0} calls</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-zinc-400">Est. Google Cost</span>
-                  <span className="font-medium text-emerald-400">${(leads?.api_usage?.google_places_cost ?? 0).toFixed(2)}</span>
-                </div>
-              </div>
+              ) : (
+                <p className="text-sm text-zinc-500">No leads yet. Discover or import leads to get started.</p>
+              )}
             </CardContent>
           </Card>
         </div>

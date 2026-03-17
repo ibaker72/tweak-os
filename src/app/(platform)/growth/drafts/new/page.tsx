@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Sparkles, FileText, Check, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,9 @@ type Step = "keyword" | "brief" | "generating_draft";
 
 export default function NewDraftPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>("keyword");
-  const [keyword, setKeyword] = useState("");
+  const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
   const [selectedOpportunityId, setSelectedOpportunityId] = useState("");
   const [opportunities, setOpportunities] = useState<GrowthOpportunity[]>([]);
 

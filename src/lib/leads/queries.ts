@@ -91,12 +91,15 @@ export async function getDashboardStats(
     totalRes,
     enrichedRes,
     contactedRes,
+    repliedRes,
+    bookedRes,
     failedRes,
     scoreRes,
     weekRes,
     monthRes,
     statusRes,
     nicheRes,
+    recentLeadsRes,
   ] = await Promise.all([
     supabase.from("leads").select("*", { count: "exact", head: true }),
     supabase
@@ -107,6 +110,14 @@ export async function getDashboardStats(
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("lifecycle_status", "contacted"),
+    supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .eq("lifecycle_status", "replied"),
+    supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .eq("lifecycle_status", "meeting_booked"),
     supabase
       .from("enrichment_jobs")
       .select("*", { count: "exact", head: true })
@@ -122,6 +133,11 @@ export async function getDashboardStats(
       .gte("created_at", monthAgo.toISOString()),
     supabase.from("leads").select("lifecycle_status"),
     supabase.from("leads").select("niche").not("niche", "is", null),
+    supabase
+      .from("leads")
+      .select("id, business_name, score, city, state")
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   const scores = (scoreRes.data as { score: number }[]) ?? [];
@@ -171,10 +187,14 @@ export async function getDashboardStats(
     };
   }
 
+  const recentLeads = ((recentLeadsRes.data ?? []) as { id: string; business_name: string; score: number; city: string | null; state: string | null }[]);
+
   return {
     total_leads: totalRes.count ?? 0,
     enriched_leads: enrichedRes.count ?? 0,
     contacted_leads: contactedRes.count ?? 0,
+    replied_leads: repliedRes.count ?? 0,
+    booked_leads: bookedRes.count ?? 0,
     failed_jobs: failedRes.count ?? 0,
     average_score: avgScore,
     leads_by_status: statusCounts,
@@ -182,6 +202,7 @@ export async function getDashboardStats(
     leads_this_week: weekRes.count ?? 0,
     leads_this_month: monthRes.count ?? 0,
     top_industries: topIndustries,
+    recent_leads: recentLeads,
     api_usage: apiUsage,
   };
 }

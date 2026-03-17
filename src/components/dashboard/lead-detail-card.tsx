@@ -31,8 +31,17 @@ import {
   BookOpen,
   Star,
   MessageSquare,
+  FileText,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import {
+  OUTREACH_TEMPLATES,
+  fillTemplate,
+  type OutreachTemplate,
+  type TemplateVariables,
+} from "@/lib/leads/outreach-templates";
 
 const LIFECYCLE_OPTIONS: LifecycleStatus[] = [
   "new",
@@ -60,6 +69,9 @@ export function LeadDetailCard({
   const [enriching, setEnriching] = useState(false);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<{ subject?: string; body: string } | null>(null);
+  const [templateName, setTemplateName] = useState("");
 
   async function handleSave() {
     setSaving(true);
@@ -128,6 +140,55 @@ export function LeadDetailCard({
       }),
     });
     router.refresh();
+  }
+
+  function handleSelectTemplate(template: OutreachTemplate) {
+    const loadTime = lead.page_load_time_ms ? (lead.page_load_time_ms / 1000).toFixed(1) : "unknown";
+    const lostPercent = lead.page_load_time_ms
+      ? lead.page_load_time_ms > 5000 ? "53" : lead.page_load_time_ms > 3000 ? "32" : "10"
+      : "unknown";
+    const missingItems = [
+      !lead.has_ssl ? "SSL certificate" : null,
+      !lead.is_mobile_responsive ? "mobile optimization" : null,
+      !lead.has_blog ? "blog/content" : null,
+    ].filter(Boolean).join(", ") || "none detected";
+
+    const vars: TemplateVariables = {
+      business_name: lead.business_name,
+      platform: lead.tech_stack?.[0] ?? "their current platform",
+      niche: lead.niche || lead.category || "local",
+      metric: "a 40% increase in conversions",
+      load_time: loadTime,
+      lost_percent: lostPercent,
+      performance_grade: lead.performance_grade || "N/A",
+      mobile_status: lead.is_mobile_responsive ? "Responsive" : "Not mobile-friendly",
+      missing_items: missingItems,
+    };
+
+    const filled = fillTemplate(template, vars);
+    setSelectedTemplate(filled);
+    setTemplateName(template.name);
+    setShowTemplateMenu(false);
+  }
+
+  async function handleSendTemplate() {
+    if (!selectedTemplate) return;
+    const fullText = selectedTemplate.subject
+      ? `Subject: ${selectedTemplate.subject}\n\n${selectedTemplate.body}`
+      : selectedTemplate.body;
+    navigator.clipboard.writeText(fullText);
+    setCopiedField("template");
+    setTimeout(() => setCopiedField(null), 2000);
+    await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: lead.id,
+        lifecycle_status: "contacted",
+      }),
+    });
+    router.refresh();
+    setSelectedTemplate(null);
   }
 
   function copyToClipboard(text: string, field: string) {
@@ -231,6 +292,22 @@ export function LeadDetailCard({
               <span className={`text-sm ${lead.page_load_time_ms > 3000 ? "text-red-400" : "text-emerald-400"}`}>
                 {(lead.page_load_time_ms / 1000).toFixed(1)}s load time
               </span>
+              {lead.performance_grade && (
+                <Badge
+                  variant="secondary"
+                  className={
+                    lead.performance_grade === "A"
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : lead.performance_grade === "B"
+                        ? "bg-blue-500/10 text-blue-400"
+                        : lead.performance_grade === "C"
+                          ? "bg-amber-500/10 text-amber-400"
+                          : "bg-red-500/10 text-red-400"
+                  }
+                >
+                  Grade {lead.performance_grade}
+                </Badge>
+              )}
             </div>
           )}
         </CardContent>
@@ -391,15 +468,44 @@ export function LeadDetailCard({
               <Zap className="h-5 w-5 text-emerald-500" />
               Outreach
             </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateOutreach}
-              disabled={generatingOutreach}
-            >
-              <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
-              {generatingOutreach ? "Generating..." : "Generate AI Outreach"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                >
+                  <FileText className="h-4 w-4" />
+                  Templates
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+                {showTemplateMenu && (
+                  <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+                    {OUTREACH_TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleSelectTemplate(t)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                      >
+                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                          {t.channel}
+                        </Badge>
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateOutreach}
+                disabled={generatingOutreach}
+              >
+                <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
+                {generatingOutreach ? "Generating..." : "Generate AI Outreach"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -572,6 +678,64 @@ export function LeadDetailCard({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Template Preview Dialog */}
+      {selectedTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="mx-4 w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+              <h3 className="text-base font-medium text-zinc-100">{templateName}</h3>
+              <button onClick={() => setSelectedTemplate(null)} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {selectedTemplate.subject && (
+                <div>
+                  <p className="text-xs font-medium uppercase text-zinc-500 mb-1">Subject</p>
+                  <p className="text-sm text-zinc-200">{selectedTemplate.subject}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs font-medium uppercase text-zinc-500 mb-1">Body</p>
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+                  <p className="text-sm text-zinc-300 whitespace-pre-wrap">{selectedTemplate.body}</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const fullText = selectedTemplate.subject
+                    ? `Subject: ${selectedTemplate.subject}\n\n${selectedTemplate.body}`
+                    : selectedTemplate.body;
+                  navigator.clipboard.writeText(fullText);
+                  setCopiedField("template");
+                  setTimeout(() => setCopiedField(null), 2000);
+                }}
+              >
+                {copiedField === "template" ? (
+                  <>
+                    <Check className="h-4 w-4 text-emerald-400" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </>
+                )}
+              </Button>
+              <Button size="sm" onClick={handleSendTemplate}>
+                <MessageSquare className="h-4 w-4" />
+                Send & Mark Contacted
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

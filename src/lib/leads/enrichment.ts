@@ -105,6 +105,7 @@ export async function enrichWebsite(
     has_blog: false,
     has_ecommerce: false,
     page_load_time_ms: null,
+    performance_grade: null,
     last_modified: null,
   };
 
@@ -157,6 +158,14 @@ export async function enrichWebsite(
 
   // E-commerce detection
   result.has_ecommerce = checkHasEcommerce(homepageHtml);
+
+  // Performance grade based on load time
+  if (loadTimeMs !== null) {
+    if (loadTimeMs < 1500) result.performance_grade = "A";
+    else if (loadTimeMs < 3000) result.performance_grade = "B";
+    else if (loadTimeMs < 5000) result.performance_grade = "C";
+    else result.performance_grade = "F";
+  }
 
   // 3. Crawl contact/about pages for more data
   const internalUrls = extractInternalPageUrls(homepageHtml, url);

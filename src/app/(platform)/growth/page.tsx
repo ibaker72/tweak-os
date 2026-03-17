@@ -16,6 +16,8 @@ import {
   ExternalLink,
   Loader2,
   RefreshCw,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +48,7 @@ export default function GrowthDashboardPage() {
   const [attention, setAttention] = useState<NeedsAttention | null>(null);
   const [recentPublished, setRecentPublished] = useState<GrowthDraft[]>([]);
   const [upcoming, setUpcoming] = useState<GrowthCalendarEntry[]>([]);
+  const [suggestions, setSuggestions] = useState<{ type: string; title: string; keyword: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,10 +61,11 @@ export default function GrowthDashboardPage() {
       setLoading(true);
       setError(null);
 
-      const [statsRes, publishedRes, upcomingRes] = await Promise.all([
+      const [statsRes, publishedRes, upcomingRes, suggestionsRes] = await Promise.all([
         fetch("/api/growth/analytics").catch(() => null),
         fetch("/api/growth/drafts?status=published&limit=5").catch(() => null),
         fetch("/api/growth/calendar?limit=5&upcoming=true").catch(() => null),
+        fetch("/api/growth/suggestions").catch(() => null),
       ]);
 
       if (statsRes?.ok) {
@@ -100,6 +104,11 @@ export default function GrowthDashboardPage() {
         const data = await upcomingRes.json();
         const entries = Array.isArray(data) ? data : Array.isArray(data?.entries) ? data.entries : [];
         setUpcoming(entries);
+      }
+
+      if (suggestionsRes?.ok) {
+        const data = await suggestionsRes.json();
+        setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions.slice(0, 4) : []);
       }
     } catch (err) {
       setError("Failed to load dashboard data");
@@ -360,6 +369,49 @@ export default function GrowthDashboardPage() {
                   </Link>
                   {" "}to plan content
                 </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        {/* Content Suggestions */}
+        <Card className="md:col-span-2 lg:col-span-3">
+          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              Content Suggestions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            {suggestions.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {suggestions.map((s, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 transition-colors hover:border-zinc-700"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Badge variant="secondary" className="mb-1.5 text-[10px]">
+                          {s.type}
+                        </Badge>
+                        <p className="text-sm text-zinc-200 line-clamp-2">{s.title}</p>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/growth/drafts/new?keyword=${encodeURIComponent(s.keyword)}`}
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
+                      Create Draft <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-6 text-center">
+                <div className="mb-3 rounded-full bg-zinc-800 p-3">
+                  <Sparkles className="h-5 w-5 text-zinc-600" />
+                </div>
+                <p className="text-sm text-zinc-400">Import and enrich leads to get AI-powered content suggestions.</p>
               </div>
             )}
           </CardContent>
