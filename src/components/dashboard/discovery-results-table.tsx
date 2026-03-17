@@ -113,6 +113,9 @@ export function DiscoveryResultsTable({
                 Website
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Tech
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Rating
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
@@ -173,6 +176,9 @@ export function DiscoveryResultsTable({
                     ) : (
                       <span className="text-zinc-500">—</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm text-zinc-500">
+                    —
                   </td>
                   <td className="px-4 py-3 text-center text-sm text-zinc-400">
                     {result.google_rating ? (

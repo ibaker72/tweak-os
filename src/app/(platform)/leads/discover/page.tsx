@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DiscoveryResultsTable } from "@/components/dashboard/discovery-results-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import {
   Globe,
   MapPin,
   XCircle,
+  Sparkles,
 } from "lucide-react";
 
 type ManualRow = {
@@ -31,6 +33,7 @@ type ManualRow = {
 };
 
 export default function DiscoverPage() {
+  const router = useRouter();
   const [source, setSource] = useState<DiscoverySource>("google_places");
   const [niche, setNiche] = useState("");
   const [city, setCity] = useState("");
@@ -394,9 +397,27 @@ export default function DiscoverPage() {
           )}
 
           {importMsg && (
-            <div className="flex items-center gap-3 rounded-lg border border-blue-900 bg-blue-950/30 px-4 py-3">
-              <CheckCircle className="h-4 w-4 shrink-0 text-blue-500" />
-              <p className="text-sm text-blue-400">{importMsg}</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-lg border border-blue-900 bg-blue-950/30 px-4 py-3">
+                <CheckCircle className="h-4 w-4 shrink-0 text-blue-500" />
+                <p className="text-sm text-blue-400">{importMsg}</p>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-emerald-900 bg-emerald-950/20 px-4 py-3">
+                <Sparkles className="h-5 w-5 shrink-0 text-emerald-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-emerald-300">
+                    Enrich imported leads to detect tech stacks, scores, and outreach angles
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push("/leads?enrichment_status=pending")}
+                  className="shrink-0"
+                >
+                  Enrich Now
+                </Button>
+              </div>
             </div>
           )}
 
