@@ -35,12 +35,12 @@ interface NeedsAttention {
 }
 
 const metricCards = [
-  { key: "total_published" as const, label: "Published", icon: FileText, color: "text-emerald-500" },
+  { key: "total_published" as const, label: "Published", icon: FileText, color: "text-lime-400" },
   { key: "total_impressions" as const, label: "Impressions", icon: Eye, color: "text-blue-500" },
   { key: "total_clicks" as const, label: "Clicks", icon: MousePointerClick, color: "text-violet-500" },
   { key: "avg_position" as const, label: "Avg Position", icon: Target, color: "text-amber-500" },
   { key: "pipeline_count" as const, label: "Pipeline", icon: Edit, color: "text-cyan-500" },
-  { key: "conversion_count" as const, label: "Conversions", icon: UserCheck, color: "text-emerald-500" },
+  { key: "conversion_count" as const, label: "Conversions", icon: UserCheck, color: "text-lime-400" },
 ];
 
 export default function GrowthDashboardPage() {
@@ -254,8 +254,8 @@ export default function GrowthDashboardPage() {
               </div>
             ) : (
               <div className="flex flex-col items-center py-6 text-center">
-                <div className="mb-3 rounded-full bg-emerald-500/10 p-3">
-                  <AlertTriangle className="h-5 w-5 text-emerald-500" />
+                <div className="mb-3 rounded-full bg-lime-400/10 p-3">
+                  <AlertTriangle className="h-5 w-5 text-lime-400" />
                 </div>
                 <p className="text-sm text-zinc-400">Everything looks good</p>
                 <p className="mt-1 text-xs text-zinc-600">No stale or overdue content</p>
@@ -268,7 +268,7 @@ export default function GrowthDashboardPage() {
         <Card>
           <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
-              <FileText className="h-4 w-4 text-emerald-500" />
+              <FileText className="h-4 w-4 text-lime-400" />
               Recently Published
               {recentPublished.length > 0 && (
                 <Badge variant="secondary" className="ml-auto text-[10px] tabular-nums">
@@ -298,7 +298,7 @@ export default function GrowthDashboardPage() {
                         href={draft.published_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 p-1 text-emerald-500 hover:text-emerald-400"
+                        className="shrink-0 p-1 text-lime-400 hover:text-lime-400"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
@@ -364,7 +364,7 @@ export default function GrowthDashboardPage() {
                 </div>
                 <p className="text-sm text-zinc-400">Nothing scheduled</p>
                 <p className="mt-1 text-xs text-zinc-600">
-                  <Link href="/growth/calendar" className="text-emerald-500 hover:text-emerald-400">
+                  <Link href="/growth/calendar" className="text-lime-400 hover:text-lime-400">
                     Open calendar
                   </Link>
                   {" "}to plan content
@@ -399,7 +399,7 @@ export default function GrowthDashboardPage() {
                     </div>
                     <Link
                       href={`/growth/drafts/new?keyword=${encodeURIComponent(s.keyword)}`}
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-lime-400 hover:text-lime-300 transition-colors"
                     >
                       Create Draft <ArrowRight className="h-3 w-3" />
                     </Link>
@@ -428,7 +428,7 @@ export default function GrowthDashboardPage() {
         ].map((link) => (
           <Link key={link.href} href={link.href}>
             <div className="group h-full cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 transition-all hover:border-zinc-700 hover:bg-zinc-800/50 sm:p-4">
-              <link.icon className="mb-2 h-5 w-5 text-zinc-500 transition-colors group-hover:text-emerald-500" />
+              <link.icon className="mb-2 h-5 w-5 text-zinc-500 transition-colors group-hover:text-lime-400" />
               <p className="text-sm font-medium text-zinc-200">{link.label}</p>
               <p className="mt-0.5 hidden text-xs text-zinc-500 sm:block">{link.desc}</p>
             </div>

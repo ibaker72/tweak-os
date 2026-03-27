@@ -22,7 +22,7 @@ const STAGE_COLORS: Record<string, string> = {
   review: "border-t-amber-500",
   approved: "border-t-blue-500",
   scheduled: "border-t-blue-500",
-  published: "border-t-emerald-500",
+  published: "border-t-lime-400",
 };
 
 export default function PipelinePage() {
@@ -124,7 +124,7 @@ export default function PipelinePage() {
             onClick={() => setStageFilter("all")}
             className={cn(
               "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-              stageFilter === "all" ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-400 hover:bg-zinc-800"
+              stageFilter === "all" ? "bg-lime-400/10 text-lime-400" : "text-zinc-400 hover:bg-zinc-800"
             )}
           >
             All ({drafts.length})
@@ -137,7 +137,7 @@ export default function PipelinePage() {
                 onClick={() => setStageFilter(stage.key)}
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                  stageFilter === stage.key ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-400 hover:bg-zinc-800"
+                  stageFilter === stage.key ? "bg-lime-400/10 text-lime-400" : "text-zinc-400 hover:bg-zinc-800"
                 )}
               >
                 {stage.label} ({count})

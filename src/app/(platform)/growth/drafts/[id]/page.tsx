@@ -132,7 +132,7 @@ export default function DraftEditorPage() {
       .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-zinc-100 mt-6 mb-3">$1</h2>')
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-zinc-100">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-emerald-400 hover:underline" target="_blank">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-lime-400 hover:underline" target="_blank">$1</a>')
       .replace(/^- (.*$)/gm, '<li class="ml-4 text-zinc-300">$1</li>')
       .replace(/^(?!<[h|l|s])(.*$)/gm, (match) => {
         if (match.trim() === "") return '<br/>';
@@ -234,7 +234,7 @@ export default function DraftEditorPage() {
               <div className="flex items-center gap-4">
                 <span className={cn(
                   "text-4xl font-bold",
-                  draft.seo_score >= 70 ? "text-emerald-400" : draft.seo_score >= 40 ? "text-amber-400" : "text-red-400"
+                  draft.seo_score >= 70 ? "text-lime-400" : draft.seo_score >= 40 ? "text-amber-400" : "text-red-400"
                 )}>
                   {draft.seo_score}
                 </span>
@@ -243,7 +243,7 @@ export default function DraftEditorPage() {
                     <div
                       className={cn(
                         "h-2 rounded-full transition-all",
-                        draft.seo_score >= 70 ? "bg-emerald-500" : draft.seo_score >= 40 ? "bg-amber-500" : "bg-red-500"
+                        draft.seo_score >= 70 ? "bg-lime-400" : draft.seo_score >= 40 ? "bg-amber-500" : "bg-red-500"
                       )}
                       style={{ width: `${draft.seo_score}%` }}
                     />
@@ -256,7 +256,7 @@ export default function DraftEditorPage() {
                 {seoChecks.map((check, i) => (
                   <div key={i} className="flex items-center gap-2">
                     {check.pass ? (
-                      <Check className="h-3 w-3 text-emerald-500" />
+                      <Check className="h-3 w-3 text-lime-400" />
                     ) : (
                       <X className="h-3 w-3 text-red-400" />
                     )}
@@ -401,7 +401,7 @@ export default function DraftEditorPage() {
                   href={draft.published_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300"
+                  className="flex items-center gap-2 text-sm text-lime-400 hover:text-lime-300"
                 >
                   <ExternalLink className="h-3 w-3" />
                   View live article

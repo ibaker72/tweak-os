@@ -184,9 +184,9 @@ export default function OpportunitiesPage() {
     if (sortField !== field)
       return <ArrowUpDown className="h-3 w-3 text-zinc-600" />;
     return sortDir === "asc" ? (
-      <ChevronUp className="h-3 w-3 text-emerald-500" />
+      <ChevronUp className="h-3 w-3 text-lime-400" />
     ) : (
-      <ChevronDown className="h-3 w-3 text-emerald-500" />
+      <ChevronDown className="h-3 w-3 text-lime-400" />
     );
   }
 
@@ -261,7 +261,7 @@ export default function OpportunitiesPage() {
       {discovering && (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8">
           <div className="flex flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-lime-400" />
             <p className="text-sm text-zinc-400">
               Discovering opportunities for &ldquo;{seedKeyword}&rdquo;...
             </p>
@@ -339,7 +339,7 @@ export default function OpportunitiesPage() {
                         className={cn(
                           "font-medium",
                           opp.relevance_score >= 0.7
-                            ? "text-emerald-400"
+                            ? "text-lime-400"
                             : opp.relevance_score >= 0.4
                             ? "text-amber-400"
                             : "text-zinc-400"
@@ -353,7 +353,7 @@ export default function OpportunitiesPage() {
                         className={cn(
                           "font-bold",
                           opp.opportunity_score >= 70
-                            ? "text-emerald-400"
+                            ? "text-lime-400"
                             : opp.opportunity_score >= 40
                             ? "text-amber-400"
                             : "text-zinc-400"

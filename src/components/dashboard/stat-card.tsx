@@ -22,8 +22,8 @@ export function StatCard({ title, value, icon: Icon, trend, className }: StatCar
               <p className="mt-1 text-xs text-zinc-500">{trend}</p>
             )}
           </div>
-          <div className="rounded-lg bg-emerald-500/10 p-3">
-            <Icon className="h-5 w-5 text-emerald-500" />
+          <div className="rounded-lg bg-lime-400/10 p-3">
+            <Icon className="h-5 w-5 text-lime-400" />
           </div>
         </div>
       </CardContent>

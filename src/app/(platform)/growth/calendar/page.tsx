@@ -74,7 +74,7 @@ export default function CalendarPage() {
   }
 
   function getStatusColor(status: string): string {
-    if (status === "published") return "bg-emerald-500";
+    if (status === "published") return "bg-lime-400";
     if (status === "scheduled") return "bg-blue-500";
     return "bg-amber-500";
   }
@@ -144,7 +144,7 @@ export default function CalendarPage() {
                         <>
                           <span className={cn(
                             "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                            isToday ? "bg-emerald-500 text-white font-bold" : "text-zinc-400"
+                            isToday ? "bg-lime-400 text-white font-bold" : "text-zinc-400"
                           )}>
                             {day}
                           </span>

@@ -151,7 +151,7 @@ export default function AnalyticsPage() {
             <div key={card.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 sm:p-5">
               <div className="flex items-center justify-between">
                 <p className="truncate text-xs text-zinc-400 sm:text-sm">{card.label}</p>
-                <card.icon className="h-3.5 w-3.5 shrink-0 text-emerald-500 sm:h-4 sm:w-4" />
+                <card.icon className="h-3.5 w-3.5 shrink-0 text-lime-400 sm:h-4 sm:w-4" />
               </div>
               <p className="mt-2 text-xl font-bold text-zinc-50 sm:text-2xl">{card.value}</p>
             </div>
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
           {best && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-emerald-400">Best Performing</CardTitle>
+                <CardTitle className="text-sm text-lime-400">Best Performing</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-zinc-200 font-medium">{best[1].title || "Untitled"}</p>

@@ -1,11 +1,13 @@
 export interface OutreachTemplate {
   id: string;
   name: string;
-  channel: "email" | "linkedin" | "follow_up";
+  channel: "email" | "linkedin" | "follow_up" | "phone";
   subject?: string;
   body: string;
+  variables?: string[];
 }
 
+// Legacy hardcoded templates — kept as fallback only
 export const OUTREACH_TEMPLATES: OutreachTemplate[] = [
   {
     id: "platform-rebuild",
@@ -35,6 +37,31 @@ export const OUTREACH_TEMPLATES: OutreachTemplate[] = [
     body: "Hi — following up on my note from last week. I put together a quick analysis of {{business_name}}'s site:\n\n• Performance: {{performance_grade}}\n• Mobile: {{mobile_status}}\n• Missing: {{missing_items}}\n\nHappy to walk through it on a call if useful.\n\nIyad",
   },
 ];
+
+/** Fetch templates from the database (preferred over hardcoded) */
+export async function fetchTemplates(
+  supabase: import("@supabase/supabase-js").SupabaseClient
+): Promise<OutreachTemplate[]> {
+  const { data, error } = await supabase
+    .from("outreach_templates")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    // Fallback to hardcoded templates
+    return OUTREACH_TEMPLATES;
+  }
+
+  return data.map((t: Record<string, unknown>) => ({
+    id: t.id as string,
+    name: t.name as string,
+    channel: t.channel as OutreachTemplate["channel"],
+    subject: (t.subject as string) ?? undefined,
+    body: t.body as string,
+    variables: (t.variables as string[]) ?? [],
+  }));
+}
 
 export interface TemplateVariables {
   business_name: string;

@@ -6,7 +6,8 @@ import {
   Users, TrendingUp, Search, FileText, Plus, Upload,
   Compass, Loader2, ExternalLink, Calendar,
   BarChart3, Flame, Eye, MousePointerClick,
-  AlertCircle, CheckCircle2,
+  AlertCircle, CheckCircle2, Mail, Reply, Zap,
+  ClipboardList, Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,23 @@ interface RecentLead {
   score: number;
   city: string | null;
   state: string | null;
+}
+
+interface OutreachStats {
+  sent: number;
+  opened: number;
+  replied: number;
+  bounced: number;
+  reply_rate: number;
+  open_rate: number;
+}
+
+interface AgentStat {
+  id: string;
+  display_name: string;
+  assigned_count: number;
+  contacted_count: number;
+  replied_count: number;
 }
 
 interface DashboardData {
@@ -54,6 +72,13 @@ interface DashboardData {
     avg_position: number;
     pipeline_count: number;
     conversion_count: number;
+  };
+  outreach_stats?: OutreachStats;
+  agent_stats?: AgentStat[];
+  pipeline_velocity?: {
+    avg_days_to_contact: number;
+    avg_days_to_reply: number;
+    avg_days_to_book: number;
   };
   recent_activity: {
     id: string;
@@ -94,6 +119,9 @@ export default function UnifiedDashboardPage() {
   const growth = data?.growth;
   const activity = data?.recent_activity ?? [];
   const recentLeads = leads?.recent_leads ?? [];
+  const outreach = data?.outreach_stats;
+  const agentStats = data?.agent_stats ?? [];
+  const velocity = data?.pipeline_velocity;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -142,7 +170,7 @@ export default function UnifiedDashboardPage() {
             </div>
           ) : (
             <div className="flex items-center gap-3 py-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-lime-400" />
               <span className="text-sm text-zinc-400">You&apos;re all caught up</span>
             </div>
           )}
@@ -157,7 +185,7 @@ export default function UnifiedDashboardPage() {
           <Card>
             <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
-                <Users className="h-4 w-4 text-emerald-500" />
+                <Users className="h-4 w-4 text-lime-400" />
                 Outbound Pipeline
               </CardTitle>
             </CardHeader>
@@ -167,11 +195,11 @@ export default function UnifiedDashboardPage() {
                 <MetricBlock label="Hot (70+)" value={leads?.leads_by_score_tier?.hot ?? 0} valueClass="text-red-400" />
                 <MetricBlock label="Contacted" value={leads?.contacted_leads ?? 0} />
                 <MetricBlock label="Replied" value={leads?.replied_leads ?? 0} valueClass="text-blue-400" />
-                <MetricBlock label="Booked" value={leads?.booked_leads ?? 0} valueClass="text-emerald-400" />
+                <MetricBlock label="Booked" value={leads?.booked_leads ?? 0} valueClass="text-lime-400" />
                 <MetricBlock label="Avg Score" value={leads?.average_score ?? 0} />
               </div>
               <div className="mt-4 border-t border-zinc-800 pt-4">
-                <Link href="/leads" className="text-sm text-emerald-400 transition-colors hover:text-emerald-300">
+                <Link href="/leads" className="text-sm text-lime-400 transition-colors hover:text-lime-300">
                   View all leads →
                 </Link>
               </div>
@@ -191,15 +219,52 @@ export default function UnifiedDashboardPage() {
                 <MetricBlock label="Published" value={growth?.total_published ?? 0} />
                 <MetricBlock label="In Pipeline" value={growth?.pipeline_count ?? 0} />
                 <MetricBlock label="Clicks (Month)" value={growth?.total_clicks ?? 0} />
-                <MetricBlock label="Conversions" value={growth?.conversion_count ?? 0} valueClass="text-emerald-400" />
+                <MetricBlock label="Conversions" value={growth?.conversion_count ?? 0} valueClass="text-lime-400" />
               </div>
               <div className="mt-4 border-t border-zinc-800 pt-4">
-                <Link href="/growth" className="text-sm text-emerald-400 transition-colors hover:text-emerald-300">
+                <Link href="/growth" className="text-sm text-lime-400 transition-colors hover:text-lime-300">
                   View growth engine →
                 </Link>
               </div>
             </CardContent>
           </Card>
+
+          {/* Outreach Stats */}
+          <Card>
+            <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+                <Mail className="h-4 w-4 text-lime-400" />
+                Outreach This Week
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+                <MetricBlock label="Sent" value={outreach?.sent ?? 0} />
+                <MetricBlock label="Opened" value={outreach?.opened ?? 0} />
+                <MetricBlock label="Replied" value={outreach?.replied ?? 0} valueClass="text-lime-400" />
+                <MetricBlock label="Reply Rate" value={outreach?.reply_rate ?? 0} suffix="%" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pipeline Velocity */}
+          {velocity && (
+            <Card>
+              <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+                  <Zap className="h-4 w-4 text-amber-400" />
+                  Pipeline Velocity
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6">
+                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                  <MetricBlock label="Avg Days to Contact" value={velocity.avg_days_to_contact} suffix="d" />
+                  <MetricBlock label="Avg Days to Reply" value={velocity.avg_days_to_reply} suffix="d" />
+                  <MetricBlock label="Avg Days to Book" value={velocity.avg_days_to_book} suffix="d" valueClass="text-lime-400" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Activity Feed */}
           <Card>
@@ -211,7 +276,7 @@ export default function UnifiedDashboardPage() {
                 <div className="space-y-3">
                   {activity.slice(0, 10).map((item) => (
                     <div key={item.id} className="flex items-start gap-3">
-                      <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.module === "leads" ? "bg-emerald-500" : item.module === "growth" ? "bg-blue-500" : "bg-zinc-500"}`} />
+                      <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.module === "leads" ? "bg-lime-400" : item.module === "growth" ? "bg-blue-500" : "bg-zinc-500"}`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-zinc-300">{item.action}</p>
                         <p className="text-xs text-zinc-500">{formatDate(item.created_at)}</p>
@@ -266,6 +331,23 @@ export default function UnifiedDashboardPage() {
             </CardContent>
           </Card>
 
+          {/* My Queue */}
+          <Card>
+            <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+                <ClipboardList className="h-4 w-4 text-lime-400" />
+                My Queue
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-center py-3">
+                <Link href="/leads/queue" className="text-sm text-lime-400 transition-colors hover:text-lime-300">
+                  Open Work Queue →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Latest Leads */}
           <Card>
             <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
@@ -302,7 +384,7 @@ export default function UnifiedDashboardPage() {
                   <div className="pt-2 border-t border-zinc-800">
                     <Link
                       href="/leads"
-                      className="text-sm text-emerald-400 transition-colors hover:text-emerald-300"
+                      className="text-sm text-lime-400 transition-colors hover:text-lime-300"
                     >
                       View all →
                     </Link>
@@ -313,6 +395,39 @@ export default function UnifiedDashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Team Leaderboard */}
+          {agentStats.length > 0 && (
+            <Card>
+              <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+                  <Trophy className="h-4 w-4 text-amber-400" />
+                  Team Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6">
+                <div className="space-y-2">
+                  {agentStats.map((agent, i) => (
+                    <div key={agent.id} className="flex items-center gap-3 rounded-lg bg-zinc-800/30 px-3 py-2">
+                      <span className={`text-xs font-bold ${i === 0 ? "text-amber-400" : "text-zinc-500"}`}>
+                        #{i + 1}
+                      </span>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-lime-400/20 text-[10px] font-bold text-lime-400">
+                        {agent.display_name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-zinc-200">{agent.display_name}</p>
+                      </div>
+                      <div className="flex gap-3 text-xs text-zinc-500">
+                        <span>{agent.assigned_count} assigned</span>
+                        <span className="text-lime-400">{agent.replied_count} replies</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
@@ -324,15 +439,19 @@ function MetricBlock({
   label,
   value,
   valueClass,
+  suffix,
 }: {
   label: string;
   value: number;
   valueClass?: string;
+  suffix?: string;
 }) {
   return (
     <div>
       <p className="text-xs text-zinc-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold sm:text-2xl ${valueClass ?? "text-zinc-100"}`}>{value}</p>
+      <p className={`mt-1 text-xl font-bold sm:text-2xl ${valueClass ?? "text-zinc-100"}`}>
+        {value}{suffix && <span className="text-sm font-normal text-zinc-500">{suffix}</span>}
+      </p>
     </div>
   );
 }

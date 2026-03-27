@@ -17,8 +17,10 @@ import {
   BarChart3,
   Settings,
   X,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SmartListsSidebar } from "./SmartListsSidebar";
 
 interface NavItem {
   label: string;
@@ -35,6 +37,7 @@ const navGroups: NavGroup[] = [
   {
     label: "OUTBOUND",
     items: [
+      { label: "Work Queue", href: "/leads/queue", icon: ClipboardList },
       { label: "Leads", href: "/leads", icon: Users },
       { label: "Discover", href: "/leads/discover", icon: Compass },
       { label: "Import", href: "/leads/import", icon: Upload },
@@ -95,8 +98,8 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
       {/* Logo */}
       <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-5">
         <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onMobileClose}>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500">
-            <Zap className="h-4 w-4 text-white" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime-400">
+            <Zap className="h-4 w-4 text-zinc-950" />
           </div>
           <span className="text-base font-semibold text-zinc-100">
             Tweak OS
@@ -142,6 +145,9 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
           </div>
         ))}
 
+        {/* Smart Lists */}
+        <SmartListsSidebar onMobileClose={onMobileClose} />
+
         {/* Separator */}
         <div className="my-4 border-t border-zinc-800" />
 
@@ -172,7 +178,7 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
+                className="h-full rounded-full bg-lime-400 transition-all"
                 style={{ width: `${googlePercent}%` }}
               />
             </div>
@@ -240,7 +246,7 @@ function NavLink({
       className={cn(
         "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
-          ? "border-l-2 border-emerald-500 bg-emerald-500/10 text-emerald-400"
+          ? "border-l-2 border-lime-400 bg-lime-400/10 text-lime-400"
           : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-50"
       )}
     >

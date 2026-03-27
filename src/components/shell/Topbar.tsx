@@ -115,7 +115,7 @@ export function Topbar({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/30"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-lime-400/20 text-xs font-semibold text-lime-400 transition-colors hover:bg-lime-400/30"
           >
             TB
           </button>

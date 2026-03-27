@@ -35,7 +35,7 @@ function relativeTime(dateStr: string): string {
 function moduleColor(module: string): string {
   switch (module) {
     case "leads":
-      return "bg-emerald-500";
+      return "bg-lime-400";
     case "growth":
       return "bg-blue-500";
     default:
@@ -53,7 +53,7 @@ export function ActivityFeed({ activities = [] }: ActivityFeedProps) {
         <button className="relative rounded-lg p-2 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300">
           <Bell className="h-4 w-4" />
           {hasActivity && (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-lime-400" />
           )}
         </button>
       </Popover.Trigger>

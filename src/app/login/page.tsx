@@ -39,7 +39,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-600">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-lime-500">
             <Search className="h-6 w-6 text-white" />
           </div>
           <CardTitle className="text-xl">Sign in to Tweak OS</CardTitle>

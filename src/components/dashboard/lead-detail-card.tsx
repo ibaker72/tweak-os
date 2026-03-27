@@ -289,7 +289,7 @@ export function LeadDetailCard({
           {lead.page_load_time_ms && (
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-zinc-500" />
-              <span className={`text-sm ${lead.page_load_time_ms > 3000 ? "text-red-400" : "text-emerald-400"}`}>
+              <span className={`text-sm ${lead.page_load_time_ms > 3000 ? "text-red-400" : "text-lime-400"}`}>
                 {(lead.page_load_time_ms / 1000).toFixed(1)}s load time
               </span>
               {lead.performance_grade && (
@@ -297,7 +297,7 @@ export function LeadDetailCard({
                   variant="secondary"
                   className={
                     lead.performance_grade === "A"
-                      ? "bg-emerald-500/10 text-emerald-400"
+                      ? "bg-lime-400/10 text-lime-400"
                       : lead.performance_grade === "B"
                         ? "bg-blue-500/10 text-blue-400"
                         : lead.performance_grade === "C"
@@ -422,7 +422,7 @@ export function LeadDetailCard({
               {Object.entries(scoreBreakdown).map(([factor, points]) => (
                 <div key={factor} className="flex items-center justify-between">
                   <span className="text-sm text-zinc-400">{factor}</span>
-                  <span className={`text-sm font-mono font-bold ${Number(points) > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <span className={`text-sm font-mono font-bold ${Number(points) > 0 ? "text-lime-400" : "text-red-400"}`}>
                     {Number(points) > 0 ? "+" : ""}{points}
                   </span>
                 </div>
@@ -465,7 +465,7 @@ export function LeadDetailCard({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Zap className="h-5 w-5 text-emerald-500" />
+              <Zap className="h-5 w-5 text-lime-400" />
               Outreach
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -719,7 +719,7 @@ export function LeadDetailCard({
               >
                 {copiedField === "template" ? (
                   <>
-                    <Check className="h-4 w-4 text-emerald-400" />
+                    <Check className="h-4 w-4 text-lime-400" />
                     Copied!
                   </>
                 ) : (
@@ -772,7 +772,7 @@ function ContactRow({
         className="opacity-0 group-hover:opacity-100 transition-opacity"
       >
         {copied ? (
-          <Check className="h-3.5 w-3.5 text-emerald-400" />
+          <Check className="h-3.5 w-3.5 text-lime-400" />
         ) : (
           <Copy className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300" />
         )}
@@ -808,8 +808,8 @@ function TechSignal({
 
   return (
     <div className="flex items-center gap-2">
-      <Icon className={`h-3.5 w-3.5 ${isGood ? "text-emerald-500" : "text-red-400"}`} />
-      <span className={`text-xs ${isGood ? "text-emerald-400" : "text-red-400"}`}>
+      <Icon className={`h-3.5 w-3.5 ${isGood ? "text-lime-400" : "text-red-400"}`} />
+      <span className={`text-xs ${isGood ? "text-lime-400" : "text-red-400"}`}>
         {value ? `Has ${label}` : `No ${label}`}
       </span>
     </div>
@@ -852,8 +852,8 @@ function CopyableSection({
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3 text-emerald-400" />
-              <span className="text-emerald-400">Copied!</span>
+              <Check className="h-3 w-3 text-lime-400" />
+              <span className="text-lime-400">Copied!</span>
             </>
           ) : (
             <>

@@ -121,7 +121,7 @@ export function ImportJobTable({ jobs }: { jobs: ImportJob[] }) {
               <td className="px-4 py-3 text-center text-sm text-zinc-400">
                 {job.total_rows}
               </td>
-              <td className="px-4 py-3 text-center text-sm text-emerald-400">
+              <td className="px-4 py-3 text-center text-sm text-lime-400">
                 {job.imported_rows}
               </td>
               <td className="px-4 py-3 text-center text-sm text-red-400">

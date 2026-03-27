@@ -25,14 +25,14 @@ export function EmptyState({
           {action.href ? (
             <Button
               asChild
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              className="bg-lime-500 text-white hover:bg-lime-600"
             >
               <Link href={action.href}>{action.label}</Link>
             </Button>
           ) : (
             <Button
               onClick={action.onClick}
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              className="bg-lime-500 text-white hover:bg-lime-600"
             >
               {action.label}
             </Button>

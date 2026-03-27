@@ -46,3 +46,25 @@ export const PIPELINE_STAGES = [
   { key: "scheduled", label: "Scheduled", description: "Has a publish date" },
   { key: "published", label: "Published", description: "Live on tweakandbuild.com" },
 ] as const;
+
+export const LEAD_PRIORITIES = [
+  { value: "urgent", label: "Urgent", color: "text-red-500" },
+  { value: "high", label: "High", color: "text-orange-500" },
+  { value: "normal", label: "Normal", color: "text-zinc-400" },
+  { value: "low", label: "Low", color: "text-zinc-600" },
+] as const;
+
+export const OUTREACH_CHANNELS = [
+  { value: "email", label: "Email" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "phone", label: "Phone" },
+  { value: "other", label: "Other" },
+] as const;
+
+export const SEQUENCE_STATUSES = [
+  { value: "draft", label: "Draft" },
+  { value: "sent", label: "Sent" },
+  { value: "opened", label: "Opened" },
+  { value: "replied", label: "Replied" },
+  { value: "bounced", label: "Bounced" },
+] as const;

@@ -46,8 +46,33 @@ export async function POST(request: NextRequest) {
       // Run discovery
       const results = await runDiscovery(input);
 
-      // Store results
+      // Phase 6: Cross-batch dedup — check discovered websites against existing leads
       if (results.length > 0) {
+        const { data: existingLeads } = await supabase
+          .from("leads")
+          .select("id, website")
+          .not("website", "is", null);
+
+        if (existingLeads && existingLeads.length > 0) {
+          const existingDomains = new Map<string, string>();
+          for (const lead of existingLeads) {
+            if (lead.website) {
+              const domain = extractRootDomain(lead.website);
+              if (domain) existingDomains.set(domain, lead.id);
+            }
+          }
+
+          for (const result of results) {
+            if (result.website) {
+              const domain = extractRootDomain(result.website);
+              if (domain && existingDomains.has(domain)) {
+                result.is_duplicate = true;
+                result.duplicate_lead_id = existingDomains.get(domain)!;
+              }
+            }
+          }
+        }
+
         await insertDiscoveryResults(supabase, jobId, results);
       }
 
@@ -84,6 +109,17 @@ export async function POST(request: NextRequest) {
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+function extractRootDomain(url: string): string | null {
+  try {
+    const hostname = new URL(
+      url.startsWith("http") ? url : `https://${url}`
+    ).hostname.replace(/^www\./, "");
+    return hostname || null;
+  } catch {
+    return null;
   }
 }
 

@@ -5,7 +5,7 @@ import type { DiscoveryResult } from "@/lib/leads/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { truncate } from "@/lib/utils";
-import { CheckCircle, Download, Loader2 } from "lucide-react";
+import { CheckCircle, Download, Loader2, Filter } from "lucide-react";
 
 interface DiscoveryResultsTableProps {
   results: DiscoveryResult[];
@@ -21,6 +21,7 @@ export function DiscoveryResultsTable({
   const [importedIds, setImportedIds] = useState<Set<string>>(
     new Set(results.filter((r) => r.imported).map((r) => r.id))
   );
+  const [showPromisingOnly, setShowPromisingOnly] = useState(false);
 
   const importableResults = results.filter((r) => !r.imported && !importedIds.has(r.id));
   const allSelected =
@@ -68,12 +69,25 @@ export function DiscoveryResultsTable({
   return (
     <div className="space-y-4">
       {/* Action bar */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-400">
-          {results.length} found &middot;{" "}
-          {selected.size} selected &middot;{" "}
-          {importedIds.size} imported
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-zinc-400">
+            {results.length} found &middot;{" "}
+            {selected.size} selected &middot;{" "}
+            {importedIds.size} imported
+          </p>
+          <button
+            onClick={() => setShowPromisingOnly(!showPromisingOnly)}
+            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+              showPromisingOnly
+                ? "border-lime-400/30 bg-lime-400/10 text-lime-400"
+                : "border-zinc-700 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Filter className="h-3 w-3" />
+            Promising only (40+)
+          </button>
+        </div>
         <Button
           onClick={handleImport}
           disabled={selected.size === 0 || importing}
@@ -100,7 +114,7 @@ export function DiscoveryResultsTable({
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 accent-emerald-500"
+                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 accent-lime-400"
                 />
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">
@@ -113,7 +127,10 @@ export function DiscoveryResultsTable({
                 Website
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Tech
+                Est. Score
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Platform
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Rating
@@ -127,8 +144,14 @@ export function DiscoveryResultsTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/50">
-            {results.map((result) => {
+            {results
+              .filter((r) => !showPromisingOnly || ((r as unknown as Record<string, unknown>).estimated_score as number ?? 0) > 40)
+              .sort((a, b) => ((b as unknown as Record<string, unknown>).estimated_score as number ?? 0) - ((a as unknown as Record<string, unknown>).estimated_score as number ?? 0))
+              .map((result) => {
               const isImported = result.imported || importedIds.has(result.id);
+              const estScore = (result as unknown as Record<string, unknown>).estimated_score as number | null;
+              const platform = (result as unknown as Record<string, unknown>).detected_platform as string | null;
+              const isDuplicate = (result as unknown as Record<string, unknown>).is_duplicate as boolean;
               return (
                 <tr
                   key={result.id}
@@ -142,13 +165,13 @@ export function DiscoveryResultsTable({
                 >
                   <td className="px-4 py-3 text-center">
                     {isImported ? (
-                      <CheckCircle className="mx-auto h-4 w-4 text-emerald-500" />
+                      <CheckCircle className="mx-auto h-4 w-4 text-lime-400" />
                     ) : (
                       <input
                         type="checkbox"
                         checked={selected.has(result.id)}
                         onChange={() => toggleOne(result.id)}
-                        className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 accent-emerald-500"
+                        className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 accent-lime-400"
                       />
                     )}
                   </td>
@@ -177,8 +200,27 @@ export function DiscoveryResultsTable({
                       <span className="text-zinc-500">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm text-zinc-500">
-                    —
+                  <td className="px-4 py-3 text-center">
+                    {estScore != null ? (
+                      <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${
+                        estScore >= 70 ? "bg-red-500/10 text-red-400" :
+                        estScore >= 40 ? "bg-orange-500/10 text-orange-400" :
+                        "bg-blue-500/10 text-blue-400"
+                      }`}>
+                        {estScore}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {platform ? (
+                      <Badge variant="secondary" className="text-[10px]">{platform}</Badge>
+                    ) : isDuplicate ? (
+                      <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30">Duplicate</Badge>
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center text-sm text-zinc-400">
                     {result.google_rating ? (

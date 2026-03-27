@@ -110,15 +110,15 @@ function NewDraftPageContent() {
 
       {/* Steps indicator */}
       <div className="flex items-center gap-2 text-sm">
-        <span className={step === "keyword" ? "text-emerald-400 font-medium" : "text-zinc-500"}>
+        <span className={step === "keyword" ? "text-lime-400 font-medium" : "text-zinc-500"}>
           1. Choose Topic
         </span>
         <ChevronRight className="h-4 w-4 text-zinc-600" />
-        <span className={step === "brief" ? "text-emerald-400 font-medium" : "text-zinc-500"}>
+        <span className={step === "brief" ? "text-lime-400 font-medium" : "text-zinc-500"}>
           2. Review Brief
         </span>
         <ChevronRight className="h-4 w-4 text-zinc-600" />
-        <span className={step === "generating_draft" ? "text-emerald-400 font-medium" : "text-zinc-500"}>
+        <span className={step === "generating_draft" ? "text-lime-400 font-medium" : "text-zinc-500"}>
           3. Generate Draft
         </span>
       </div>
@@ -134,7 +134,7 @@ function NewDraftPageContent() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="h-5 w-5 text-emerald-500" />
+              <Sparkles className="h-5 w-5 text-lime-400" />
               Choose a Topic
             </CardTitle>
           </CardHeader>
@@ -297,7 +297,7 @@ function NewDraftPageContent() {
       {step === "generating_draft" && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mb-4" />
+            <Loader2 className="h-12 w-12 animate-spin text-lime-400 mb-4" />
             <h3 className="text-lg font-medium text-zinc-200">Generating your draft...</h3>
             <p className="text-sm text-zinc-400 mt-1">This may take 30-60 seconds</p>
           </CardContent>

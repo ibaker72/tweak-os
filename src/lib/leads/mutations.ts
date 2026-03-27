@@ -336,6 +336,10 @@ export async function insertDiscoveryResults(
     source: r.source,
     niche: r.niche,
     imported: false,
+    estimated_score: r.estimated_score ?? null,
+    detected_platform: r.detected_platform ?? null,
+    is_duplicate: r.is_duplicate ?? false,
+    duplicate_lead_id: r.duplicate_lead_id ?? null,
   }));
 
   const { error } = await supabase.from("discovery_results").insert(rows);

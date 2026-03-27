@@ -31,15 +31,15 @@ export function MetricCard({
             <p
               className={cn(
                 "mt-1 text-xs",
-                trend.positive ? "text-emerald-500" : "text-red-500"
+                trend.positive ? "text-lime-400" : "text-red-500"
               )}
             >
               {trend.value}
             </p>
           )}
         </div>
-        <div className="shrink-0 rounded-lg bg-emerald-500/10 p-2.5 sm:p-3">
-          <Icon className="h-4 w-4 text-emerald-500 sm:h-5 sm:w-5" />
+        <div className="shrink-0 rounded-lg bg-lime-400/10 p-2.5 sm:p-3">
+          <Icon className="h-4 w-4 text-lime-400 sm:h-5 sm:w-5" />
         </div>
       </div>
     </div>

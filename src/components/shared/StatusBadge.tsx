@@ -24,7 +24,7 @@ function detectVariant(status: string): Variant {
 
 const variantStyles: Record<Variant, string> = {
   default: "bg-zinc-700/50 text-zinc-300",
-  success: "bg-emerald-500/15 text-emerald-400",
+  success: "bg-lime-400/15 text-lime-400",
   warning: "bg-amber-500/15 text-amber-400",
   danger: "bg-red-500/15 text-red-400",
   info: "bg-blue-500/15 text-blue-400",

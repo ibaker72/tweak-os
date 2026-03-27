@@ -24,12 +24,47 @@ export async function PATCH(request: NextRequest) {
 
     const validated = leadUpdateSchema.parse(updates);
 
-    const { error } = await supabase
-      .from("leads")
-      .update(validated)
-      .eq("id", id);
+    // If lifecycle_status changes to "contacted", handle outreach tracking
+    if (validated.lifecycle_status === "contacted") {
+      const contactedVia = body.last_contacted_via ?? null;
+      const updatePayload: Record<string, unknown> = {
+        ...validated,
+        contacted_at: new Date().toISOString(),
+      };
+      if (contactedVia) {
+        updatePayload.last_contacted_via = contactedVia;
+      }
 
-    if (error) throw error;
+      // Increment follow_up_count
+      const { data: currentLead } = await supabase
+        .from("leads")
+        .select("follow_up_count")
+        .eq("id", id)
+        .single();
+      updatePayload.follow_up_count = ((currentLead?.follow_up_count as number) ?? 0) + 1;
+
+      const { error: updateErr } = await supabase
+        .from("leads")
+        .update(updatePayload)
+        .eq("id", id);
+      if (updateErr) throw updateErr;
+
+      // Auto-create outreach sequence entry
+      const channel = contactedVia || "email";
+      await supabase.from("outreach_sequences").insert({
+        lead_id: id,
+        channel,
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        sequence_step: ((currentLead?.follow_up_count as number) ?? 0) + 1,
+      });
+    } else {
+      const { error } = await supabase
+        .from("leads")
+        .update(validated)
+        .eq("id", id);
+      if (error) throw error;
+    }
 
     // Log activity
     await logActivity(supabase, id, "updated", validated);

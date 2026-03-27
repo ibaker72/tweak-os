@@ -18,13 +18,15 @@ import {
   Download,
   CheckSquare,
   Square,
+  UserCircle,
 } from "lucide-react";
 
 interface LeadsTableProps {
   leads: Lead[];
+  agents?: { id: string; display_name: string }[];
 }
 
-export function LeadsTable({ leads }: LeadsTableProps) {
+export function LeadsTable({ leads, agents = [] }: LeadsTableProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
@@ -58,6 +60,19 @@ export function LeadsTable({ leads }: LeadsTableProps) {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ids }),
+        });
+      } else if (bulkAction.startsWith("assign:")) {
+        const agentId = bulkAction.replace("assign:", "");
+        await fetch("/api/leads/assign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lead_ids: ids, agent_id: agentId }),
+        });
+      } else if (bulkAction === "auto-assign") {
+        await fetch("/api/leads/assign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lead_ids: ids, mode: "round_robin" }),
         });
       } else if (bulkAction === "re-enrich") {
         await fetch("/api/enrich-bulk", {
@@ -112,6 +127,14 @@ export function LeadsTable({ leads }: LeadsTableProps) {
             <option value="won">Mark Won</option>
             <option value="lost">Mark Lost</option>
             <option value="not_a_fit">Mark Not a Fit</option>
+            {agents.length > 0 && (
+              <optgroup label="Assign to Agent">
+                {agents.map((a) => (
+                  <option key={a.id} value={`assign:${a.id}`}>{a.display_name}</option>
+                ))}
+              </optgroup>
+            )}
+            <option value="auto-assign">Auto-Assign (Round Robin)</option>
             <option value="re-enrich">Re-enrich</option>
             <option value="export">Export to CSV</option>
             <option value="delete">Delete</option>
@@ -162,6 +185,9 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   Status
                 </th>
                 <th className="hidden px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 lg:table-cell sm:px-4">
+                  Assigned To
+                </th>
+                <th className="hidden px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 xl:table-cell sm:px-4">
                   Contact
                 </th>
               </tr>
@@ -178,7 +204,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                       className="text-zinc-500 hover:text-zinc-300"
                     >
                       {selected.has(lead.id) ? (
-                        <CheckSquare className="h-4 w-4 text-emerald-500" />
+                        <CheckSquare className="h-4 w-4 text-lime-400" />
                       ) : (
                         <Square className="h-4 w-4" />
                       )}
@@ -241,7 +267,24 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     <LifecycleStatusBadge status={lead.lifecycle_status} />
                   </td>
                   <td
-                    className="hidden px-3 py-3 text-sm text-zinc-400 lg:table-cell sm:px-4"
+                    className="hidden px-3 py-3 text-sm lg:table-cell sm:px-4"
+                    onClick={() => router.push(`/leads/${lead.id}`)}
+                  >
+                    {(() => {
+                      const assignedTo = (lead as unknown as Record<string, unknown>).assigned_to as string | null;
+                      const agent = agents.find((a) => a.id === assignedTo);
+                      return agent ? (
+                        <span className="flex items-center gap-1.5 text-zinc-300">
+                          <UserCircle className="h-3.5 w-3.5 text-lime-400" />
+                          {agent.display_name}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      );
+                    })()}
+                  </td>
+                  <td
+                    className="hidden px-3 py-3 text-sm text-zinc-400 xl:table-cell sm:px-4"
                     onClick={() => router.push(`/leads/${lead.id}`)}
                   >
                     {lead.email || lead.email_1 || lead.phone || lead.phone_1 || "—"}

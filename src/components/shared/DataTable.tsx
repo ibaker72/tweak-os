@@ -116,7 +116,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     className="text-zinc-500 hover:text-zinc-300"
                   >
                     {selected.size === data.length && data.length > 0 ? (
-                      <CheckSquare className="h-4 w-4 text-emerald-500" />
+                      <CheckSquare className="h-4 w-4 text-lime-400" />
                     ) : (
                       <Square className="h-4 w-4" />
                     )}
@@ -170,7 +170,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         className="text-zinc-500 hover:text-zinc-300"
                       >
                         {selected.has(id) ? (
-                          <CheckSquare className="h-4 w-4 text-emerald-500" />
+                          <CheckSquare className="h-4 w-4 text-lime-400" />
                         ) : (
                           <Square className="h-4 w-4" />
                         )}

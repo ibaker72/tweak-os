@@ -24,6 +24,18 @@ export default async function LeadsPage({
   const { data: leads, count } = await getLeads(supabase, filters);
   const totalPages = Math.ceil(count / filters.per_page);
 
+  let agents: { id: string; display_name: string }[] = [];
+  try {
+    const { data } = await supabase
+      .from("agent_profiles")
+      .select("id, display_name")
+      .eq("is_active", true)
+      .order("display_name");
+    agents = data ?? [];
+  } catch {
+    agents = [];
+  }
+
   return (
     <div className="space-y-6">
       <DashboardHeader title="Leads" description={`${count} total leads`}>
@@ -50,7 +62,7 @@ export default async function LeadsPage({
 
       <LeadsFilters currentFilters={rawParams} />
 
-      <LeadsTable leads={leads} />
+      <LeadsTable leads={leads} agents={agents} />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pt-4">
@@ -64,7 +76,7 @@ export default async function LeadsPage({
                 }}
                 className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                   filters.page === page
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    ? "bg-lime-400/10 text-lime-400 border border-lime-400/20"
                     : "text-zinc-400 hover:bg-zinc-800"
                 }`}
               >

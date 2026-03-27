@@ -103,10 +103,10 @@ export function ImportCsvForm() {
       )}
 
       {result && (
-        <Card className="border-emerald-900">
+        <Card className="border-lime-900">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-emerald-500" />
+              <CheckCircle className="h-5 w-5 text-lime-400" />
               <div>
                 <p className="text-sm font-medium text-zinc-50">
                   Import Complete

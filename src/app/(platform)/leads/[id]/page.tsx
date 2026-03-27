@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getLeadById, getActivityLog } from "@/lib/leads/queries";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadDetailCard } from "@/components/dashboard/lead-detail-card";
+import { LeadDetailExtras } from "@/components/dashboard/lead-detail-extras";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -27,6 +28,19 @@ export default async function LeadDetailPage({
     activityLog = [];
   }
 
+  // Fetch agents for assignment dropdown
+  let agents: { id: string; display_name: string }[] = [];
+  try {
+    const { data } = await supabase
+      .from("agent_profiles")
+      .select("id, display_name")
+      .eq("is_active", true)
+      .order("display_name");
+    agents = data ?? [];
+  } catch {
+    agents = [];
+  }
+
   return (
     <div className="space-y-6">
       <DashboardHeader
@@ -42,6 +56,8 @@ export default async function LeadDetailPage({
       </DashboardHeader>
 
       <LeadDetailCard lead={lead} activityLog={activityLog} />
+
+      <LeadDetailExtras lead={lead} agents={agents} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { DiscoveryInput } from "./types";
 import { searchGooglePlaces, getPlaceDetails, type GooglePlaceResult } from "./google-places";
 import { searchGoogleCustom, buildSearchQuery } from "./google-search";
+import { preScoreDiscoveryResult } from "./pre-scorer";
 
 export interface DiscoveredBusiness {
   business_name: string;
@@ -16,6 +17,10 @@ export interface DiscoveredBusiness {
   google_review_count: number | null;
   category: string | null;
   address: string | null;
+  estimated_score: number | null;
+  detected_platform: string | null;
+  is_duplicate: boolean;
+  duplicate_lead_id: string | null;
 }
 
 const FETCH_TIMEOUT = 8_000;
@@ -301,6 +306,10 @@ async function discoverFromGooglePlaces(
       google_review_count: place.google_review_count,
       category: place.category,
       address: place.address,
+      estimated_score: null,
+      detected_platform: null,
+      is_duplicate: false,
+      duplicate_lead_id: null,
     });
   }
 
@@ -337,6 +346,10 @@ async function discoverFromGoogleSearch(
         google_review_count: null,
         category: null,
         address: null,
+        estimated_score: null,
+        detected_platform: null,
+        is_duplicate: false,
+        duplicate_lead_id: null,
       });
     } catch {
       // Skip invalid URLs
@@ -377,6 +390,10 @@ async function discoverFromUrlList(
         google_review_count: null,
         category: null,
         address: null,
+        estimated_score: null,
+        detected_platform: null,
+        is_duplicate: false,
+        duplicate_lead_id: null,
       });
       continue;
     }
@@ -397,6 +414,10 @@ async function discoverFromUrlList(
       google_review_count: null,
       category: null,
       address: null,
+      estimated_score: null,
+      detected_platform: null,
+      is_duplicate: false,
+      duplicate_lead_id: null,
     });
   }
 
@@ -416,15 +437,57 @@ function discoverManual(): DiscoveredBusiness[] {
 export async function runDiscovery(
   input: DiscoveryInput
 ): Promise<DiscoveredBusiness[]> {
+  let results: DiscoveredBusiness[];
+
   switch (input.source) {
     case "google_places":
-      return discoverFromGooglePlaces(input);
+      results = await discoverFromGooglePlaces(input);
+      break;
     case "google_search":
-      return discoverFromGoogleSearch(input);
+      results = await discoverFromGoogleSearch(input);
+      break;
     case "url_list":
-      return discoverFromUrlList(input);
+      results = await discoverFromUrlList(input);
+      break;
     case "manual":
     default:
-      return discoverManual();
+      results = discoverManual();
+      break;
   }
+
+  // Pre-score results with websites (concurrency limit of 3)
+  const withWebsites = results.filter((r) => r.website);
+  const batchSize = 3;
+  for (let i = 0; i < withWebsites.length; i += batchSize) {
+    const batch = withWebsites.slice(i, i + batchSize);
+    const scores = await Promise.all(
+      batch.map((r) =>
+        preScoreDiscoveryResult(r.website!).catch(() => ({
+          estimated_score: 30,
+          platform: null,
+          is_mobile: true,
+        }))
+      )
+    );
+    for (let j = 0; j < batch.length; j++) {
+      batch[j].estimated_score = scores[j].estimated_score;
+      batch[j].detected_platform = scores[j].platform;
+    }
+  }
+
+  // Dedup within batch by root domain
+  const seenDomains = new Map<string, number>();
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (!r.website) continue;
+    const root = getRootDomain(r.website);
+    if (!root) continue;
+    if (seenDomains.has(root)) {
+      r.is_duplicate = true;
+    } else {
+      seenDomains.set(root, i);
+    }
+  }
+
+  return results;
 }

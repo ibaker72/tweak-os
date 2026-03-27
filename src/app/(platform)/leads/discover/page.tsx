@@ -208,7 +208,7 @@ export default function DiscoverPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Compass className="h-5 w-5 text-emerald-500" />
+              <Compass className="h-5 w-5 text-lime-400" />
               Discovery Source
             </CardTitle>
           </CardHeader>
@@ -390,9 +390,9 @@ export default function DiscoverPage() {
           )}
 
           {successMsg && (
-            <div className="flex items-center gap-3 rounded-lg border border-emerald-900 bg-emerald-950/30 px-4 py-3">
-              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
-              <p className="text-sm text-emerald-400">{successMsg}</p>
+            <div className="flex items-center gap-3 rounded-lg border border-lime-900 bg-lime-950/30 px-4 py-3">
+              <CheckCircle className="h-4 w-4 shrink-0 text-lime-400" />
+              <p className="text-sm text-lime-400">{successMsg}</p>
             </div>
           )}
 
@@ -402,10 +402,10 @@ export default function DiscoverPage() {
                 <CheckCircle className="h-4 w-4 shrink-0 text-blue-500" />
                 <p className="text-sm text-blue-400">{importMsg}</p>
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-emerald-900 bg-emerald-950/20 px-4 py-3">
-                <Sparkles className="h-5 w-5 shrink-0 text-emerald-500" />
+              <div className="flex items-center gap-3 rounded-lg border border-lime-900 bg-lime-950/20 px-4 py-3">
+                <Sparkles className="h-5 w-5 shrink-0 text-lime-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-emerald-300">
+                  <p className="text-sm font-medium text-lime-300">
                     Enrich imported leads to detect tech stacks, scores, and outreach angles
                   </p>
                 </div>

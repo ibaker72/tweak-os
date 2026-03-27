@@ -36,8 +36,8 @@ export function DashboardSidebar() {
           rel="noopener noreferrer"
           className="flex items-center gap-3 transition-opacity hover:opacity-80"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-            <Zap className="h-4 w-4 text-emerald-500" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime-400/10">
+            <Zap className="h-4 w-4 text-lime-400" />
           </div>
           <div>
             <span className="text-sm font-bold text-zinc-50">
@@ -62,7 +62,7 @@ export function DashboardSidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-emerald-500/10 text-emerald-400"
+                  ? "bg-lime-400/10 text-lime-400"
                   : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-50"
               )}
             >
