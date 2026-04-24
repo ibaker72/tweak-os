@@ -43,7 +43,8 @@ async function log(params: {
 }) {
   // Fire-and-forget — never let a logging failure affect the response.
   try {
-    await createServiceClient().from("automation_logs").insert(params);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await createServiceClient().from("automation_logs").insert(params as any);
   } catch (err) {
     console.error("[automate] log write failed:", err);
   }
