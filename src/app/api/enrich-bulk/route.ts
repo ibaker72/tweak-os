@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { enrichWebsite } from "@/lib/leads/enrichment";
 import { scoreLead } from "@/lib/leads/scoring";
@@ -13,20 +14,25 @@ import {
 
 const MAX_CONCURRENT = 2;
 const DELAY_MS = 1000;
+const MAX_BULK_LEADS = 100;
+
+const bulkSchema = z.object({
+  lead_ids: z.array(z.string().uuid()).min(1).max(MAX_BULK_LEADS),
+});
 
 // POST /api/enrich-bulk — enrich multiple leads
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const body = await request.json();
-    const { lead_ids } = body;
-
-    if (!lead_ids || !Array.isArray(lead_ids) || lead_ids.length === 0) {
+    const parsed = bulkSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "lead_ids array is required" },
+        { error: "Invalid request", details: parsed.error.issues },
         { status: 400 }
       );
     }
+    const { lead_ids } = parsed.data;
 
     // Mark all as crawling
     await supabase
@@ -59,9 +65,9 @@ export async function POST(request: NextRequest) {
             google_review_count: lead.google_review_count,
           });
 
-          // Generate outreach if score >= 40 and OpenAI key is available
+          // Generate outreach if score >= 40 and Anthropic key is available
           let outreachData = null;
-          if (scoreResult.score >= 40 && process.env.OPENAI_API_KEY) {
+          if (scoreResult.score >= 40 && process.env.ANTHROPIC_API_KEY) {
             try {
               outreachData = await generateOutreach(lead, enrichmentResult);
             } catch {

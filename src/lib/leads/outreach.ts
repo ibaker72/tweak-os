@@ -1,14 +1,5 @@
 import type { Lead, OutreachData, EnrichmentResult } from "./types";
-
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    throw new Error("OPENAI_API_KEY environment variable is not set");
-  }
-  return key;
-}
+import { generateCompletion } from "@/lib/ai/anthropic";
 
 interface OutreachContext {
   business_name: string;
@@ -52,16 +43,13 @@ function buildContext(lead: Lead, enrichment?: EnrichmentResult): OutreachContex
   };
 }
 
-function determinePricingTier(ctx: OutreachContext): string {
-  // Custom Engineering for complex needs
+export function determinePricingTier(ctx: OutreachContext): string {
   if (ctx.has_ecommerce || ctx.tech_stack.length > 3) {
     return "Custom Engineering ($8K-$30K+)";
   }
-  // Rapid Build for simpler rebuilds
   if (ctx.tech_stack.some((t) => ["Wix", "Squarespace", "WordPress", "GoDaddy"].includes(t))) {
     return "Rapid Build ($2,500-$8K)";
   }
-  // Growth Retainer for ongoing needs
   if (ctx.has_blog && ctx.google_rating && ctx.google_rating >= 4.0) {
     return "Growth Retainer ($2K-$5K/mo)";
   }
@@ -72,7 +60,6 @@ export async function generateOutreach(
   lead: Lead,
   enrichment?: EnrichmentResult
 ): Promise<OutreachData> {
-  const apiKey = getOpenAIKey();
   const ctx = buildContext(lead, enrichment);
   const pricingTier = determinePricingTier(ctx);
 
@@ -121,30 +108,11 @@ Generate the following in JSON format:
 
 Respond with ONLY valid JSON, no markdown.`;
 
-  const res = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    }),
+  const content = await generateCompletion({
+    system: systemPrompt,
+    user: userPrompt,
+    maxTokens: 1500,
   });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenAI API error (${res.status}): ${body}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content ?? "";
 
   try {
     const parsed = JSON.parse(content);
@@ -157,7 +125,6 @@ Respond with ONLY valid JSON, no markdown.`;
       pricing_tier: pricingTier,
     };
   } catch {
-    // If JSON parsing fails, try to extract meaningful content
     return {
       pain_points: [],
       offer_angle: pricingTier,

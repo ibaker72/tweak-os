@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const results = await discoverKeywordOpportunities(seed);
-    await trackApiUsage(supabase, "openai", "gpt-4o-mini");
+    await trackApiUsage(supabase, "anthropic", "claude-haiku-4-5");
 
     const opportunitiesToInsert = results.map((result) => {
       const opportunityScore = calculateOpportunityScore(

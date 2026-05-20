@@ -1,18 +1,9 @@
 import type { KeywordOpportunityResult } from "@/types/growth";
-
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY environment variable is not set");
-  return key;
-}
+import { generateCompletion, stripJsonFences } from "@/lib/ai/anthropic";
 
 export async function discoverKeywordOpportunities(
   seed: string
 ): Promise<KeywordOpportunityResult[]> {
-  const apiKey = getOpenAIKey();
-
   const systemPrompt = `You are an SEO strategist for a premium product engineering studio that builds websites, web apps, e-commerce stores, and automation systems for founders and small businesses. The studio is called Tweak & Build.
 
 Services offered:
@@ -40,35 +31,14 @@ Focus on keywords that could drive potential clients to the studio. Mix of:
 Return ONLY a JSON array, no markdown formatting, no code blocks. Example format:
 [{"keyword":"example phrase","search_demand":"medium","intent":"commercial","difficulty":"easy","relevance_score":85}]`;
 
-  const res = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.8,
-      max_tokens: 3000,
-    }),
+  const content = await generateCompletion({
+    system: systemPrompt,
+    user: userPrompt,
+    maxTokens: 3000,
   });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenAI API error (${res.status}): ${body}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content ?? "";
-
   try {
-    // Strip any markdown code block wrapper if present
-    const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = JSON.parse(stripJsonFences(content));
     if (!Array.isArray(parsed)) throw new Error("Expected array");
     return parsed.map((item: Record<string, unknown>) => ({
       keyword: String(item.keyword ?? ""),
@@ -93,7 +63,6 @@ export function calculateOpportunityScore(
   const demand = demandMap[searchDemand] ?? 30;
   const diff = difficultyMap[difficulty] ?? 50;
 
-  // Composite: (demand × (100 - difficulty_penalty) × relevance) / 10000
   return Math.round((demand * diff * relevanceScore) / 10000);
 }
 

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/service";
 import { automationRequestSchema } from "@/lib/validators/automation";
 
@@ -32,7 +31,7 @@ function clientIp(req: NextRequest): string {
   );
 }
 
-async function log(params: {
+interface AutomationLogInsert {
   site_config_id?: string;
   domain?: string;
   status: LogStatus;
@@ -40,11 +39,17 @@ async function log(params: {
   payload?: unknown;
   openclaw_response?: unknown;
   ip_address?: string;
-}) {
+}
+
+async function log(params: AutomationLogInsert) {
   // Fire-and-forget — never let a logging failure affect the response.
+  // The cast is needed because no generated Supabase types are present;
+  // automation_logs is typed as `never` without them. AutomationLogInsert
+  // narrows the call site, so the cast is just to satisfy the SDK overload.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await createServiceClient().from("automation_logs").insert(params as any);
+    await createServiceClient()
+      .from("automation_logs")
+      .insert(params as unknown as never);
   } catch (err) {
     console.error("[automate] log write failed:", err);
   }

@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
-export type ApiService = "google_places" | "google_search" | "openai";
+export type ApiService = "google_places" | "google_search" | "anthropic" | "openai";
 
 // Cost estimates per call
 const COST_PER_CALL: Record<string, number> = {
@@ -8,7 +8,8 @@ const COST_PER_CALL: Record<string, number> = {
   "google_places:details": 0.017,
   "google_places:nearbysearch": 0.032,
   "google_search:search": 0.005,
-  "openai:gpt-4o-mini": 0.0003, // rough per-request estimate
+  "anthropic:claude-haiku-4-5": 0.0008, // rough per-request estimate
+  "openai:gpt-4o-mini": 0.0003,
 };
 
 export async function trackApiUsage(
@@ -31,7 +32,7 @@ export async function getApiUsageStats(
 ): Promise<{
   google_places_today: number;
   google_search_today: number;
-  openai_this_month: number;
+  ai_calls_this_month: number;
   google_places_cost: number;
 }> {
   const today = new Date();
@@ -41,7 +42,7 @@ export async function getApiUsageStats(
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const monthStr = monthStart.toISOString();
 
-  const [placesToday, searchToday, openaiMonth, placesCost] = await Promise.all([
+  const [placesToday, searchToday, aiMonth, placesCost] = await Promise.all([
     supabase
       .from("api_usage")
       .select("id", { count: "exact", head: true })
@@ -55,7 +56,7 @@ export async function getApiUsageStats(
     supabase
       .from("api_usage")
       .select("id", { count: "exact", head: true })
-      .eq("service", "openai")
+      .in("service", ["anthropic", "openai"])
       .gte("created_at", monthStr),
     supabase
       .from("api_usage")
@@ -72,7 +73,7 @@ export async function getApiUsageStats(
   return {
     google_places_today: placesToday.count ?? 0,
     google_search_today: searchToday.count ?? 0,
-    openai_this_month: openaiMonth.count ?? 0,
+    ai_calls_this_month: aiMonth.count ?? 0,
     google_places_cost: Math.round(totalPlacesCost * 100) / 100,
   };
 }

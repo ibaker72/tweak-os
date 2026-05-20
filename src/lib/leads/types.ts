@@ -177,7 +177,7 @@ export interface DashboardStats {
   api_usage: {
     google_places_today: number;
     google_search_today: number;
-    openai_this_month: number;
+    ai_calls_this_month: number;
     google_places_cost: number;
   };
 }

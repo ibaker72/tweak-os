@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     const generated = await generateBrief(keyword);
-    await trackApiUsage(supabase, "openai", "gpt-4o-mini");
+    await trackApiUsage(supabase, "anthropic", "claude-haiku-4-5");
 
     const briefRecord = {
       opportunity_id: opportunity_id ?? null,

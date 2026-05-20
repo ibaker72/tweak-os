@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
         google_review_count: lead.google_review_count,
       });
 
-      // Generate AI outreach if score >= 40 and OpenAI key is configured
+      // Generate AI outreach if score >= 40 and Anthropic key is configured
       let outreachData = null;
-      if (scoreResult.score >= 40 && process.env.OPENAI_API_KEY) {
+      if (scoreResult.score >= 40 && process.env.ANTHROPIC_API_KEY) {
         try {
           outreachData = await generateOutreach(lead, enrichmentResult);
         } catch (err) {

@@ -1,16 +1,7 @@
 import type { GrowthBrief } from "@/types/growth";
-
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY environment variable is not set");
-  return key;
-}
+import { generateCompletion } from "@/lib/ai/anthropic";
 
 export async function generateDraft(brief: GrowthBrief): Promise<string> {
-  const apiKey = getOpenAIKey();
-
   const outlineText = brief.outline?.sections
     ?.map((s) => {
       const prefix = s.level === "h2" ? "##" : "###";
@@ -44,30 +35,11 @@ Requirements:
 - Use markdown formatting (## for H2, ### for H3, **bold** for emphasis, - for lists)
 - Do NOT include a title/H1 — that's handled separately`;
 
-  const res = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 4000,
-    }),
+  return generateCompletion({
+    system: systemPrompt,
+    user: userPrompt,
+    maxTokens: 4000,
   });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenAI API error (${res.status}): ${body}`);
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
 }
 
 export function countWords(text: string): number {
@@ -75,17 +47,14 @@ export function countWords(text: string): number {
 }
 
 export function generateMetaTitle(title: string, keyword: string): string {
-  // If title already contains the keyword, use it directly (truncate to 60 chars)
   if (title.toLowerCase().includes(keyword.toLowerCase())) {
     return title.length <= 60 ? title : title.slice(0, 57) + "...";
   }
-  // Append keyword context
   const withKeyword = `${title} | ${keyword}`;
   return withKeyword.length <= 60 ? withKeyword : title.slice(0, 57) + "...";
 }
 
 export function generateMetaDescription(content: string, keyword: string): string {
-  // Extract the first meaningful paragraph that contains relevant content
   const paragraphs = content
     .split("\n")
     .filter((line) => !line.startsWith("#") && line.trim().length > 50);
@@ -94,7 +63,6 @@ export function generateMetaDescription(content: string, keyword: string): strin
     p.toLowerCase().includes(keyword.toLowerCase().split(" ")[0])
   ) ?? paragraphs[0] ?? "";
 
-  // Clean and truncate to 155 chars
   const cleaned = relevant.replace(/\*\*/g, "").replace(/\[.*?\]\(.*?\)/g, "").trim();
   return cleaned.length <= 155 ? cleaned : cleaned.slice(0, 152) + "...";
 }

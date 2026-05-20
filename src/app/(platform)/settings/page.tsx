@@ -325,10 +325,15 @@ export default function SettingsPage() {
           <p className="text-sm text-zinc-400">API keys are managed through environment variables on the server.</p>
           <div className="space-y-3">
             {[
-              { name: "OPENAI_API_KEY", description: "Used for AI outreach, content generation, and keyword research" },
-              { name: "GOOGLE_PLACES_API_KEY", description: "Used for business discovery via Google Places" },
-              { name: "GOOGLE_CUSTOM_SEARCH_API_KEY", description: "Used for Google Custom Search discovery" },
+              { name: "ANTHROPIC_API_KEY", description: "Claude (Haiku 4.5) — AI outreach, brief/draft generation, keyword research" },
+              { name: "GOOGLE_PLACES_API_KEY", description: "Business discovery via Google Places" },
+              { name: "GOOGLE_CUSTOM_SEARCH_API_KEY", description: "Google Custom Search discovery" },
+              { name: "GOOGLE_CUSTOM_SEARCH_CX", description: "Google Custom Search engine ID" },
+              { name: "OPENCLAW_MASTER_KEY", description: "OpenClaw automation hub — required by /api/v1/automate" },
+              { name: "OPENCLAW_API_BASE_URL", description: "Optional override for OpenClaw endpoint (default: https://api.clawhub.ai)" },
               { name: "NEXT_PUBLIC_SUPABASE_URL", description: "Supabase project URL" },
+              { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", description: "Supabase public anon key" },
+              { name: "SUPABASE_SERVICE_ROLE_KEY", description: "Supabase service-role key (server-side only, used by automation proxy)" },
             ].map((key) => (
               <div key={key.name} className="flex flex-col gap-2 rounded-lg bg-zinc-800/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">

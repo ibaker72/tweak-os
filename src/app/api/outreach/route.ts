@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Track API usage
-    await trackApiUsage(supabase, "openai", "gpt-4o-mini");
+    await trackApiUsage(supabase, "anthropic", "claude-haiku-4-5");
 
     // Generate outreach
     const outreach = await generateOutreach(lead);

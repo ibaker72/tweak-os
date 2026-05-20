@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Generate the draft content
     const content = await generateDraft(typedBrief);
-    await trackApiUsage(supabase, "openai", "gpt-4o-mini");
+    await trackApiUsage(supabase, "anthropic", "claude-haiku-4-5");
 
     const wordCount = countWords(content);
     const metaTitle = generateMetaTitle(typedBrief.title, typedBrief.target_keyword);

@@ -182,7 +182,7 @@ export async function getDashboardStats(
     apiUsage = {
       google_places_today: 0,
       google_search_today: 0,
-      openai_this_month: 0,
+      ai_calls_this_month: 0,
       google_places_cost: 0,
     };
   }
