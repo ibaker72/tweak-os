@@ -42,7 +42,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex items-center justify-center">
             <Logo size={48} />
           </div>
-          <CardTitle className="text-xl">Sign in to Tweak OS</CardTitle>
+          <CardTitle className="text-xl">Sign in to Tweak&amp;Build OS</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">

@@ -525,8 +525,11 @@ export function ProposalsPageInner() {
             box-shadow: none !important;
             background: white !important;
           }
-          #proposal-preview,
-          #proposal-preview * {
+          #proposal-preview {
+            background: white !important;
+          }
+          .proposal-markdown,
+          .proposal-markdown * {
             color: black !important;
             background: white !important;
             border-color: #ddd !important;

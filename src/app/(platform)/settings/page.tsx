@@ -158,7 +158,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Settings</h1>
-        <p className="mt-1 text-sm text-zinc-400">Manage your Tweak OS configuration</p>
+        <p className="mt-1 text-sm text-zinc-400">Manage your Tweak&amp;Build OS configuration</p>
       </div>
 
       {/* Team Management */}
@@ -374,7 +374,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm text-zinc-400">
-            <p><strong className="text-zinc-200">Tweak OS</strong> — Internal operating system for Tweak & Build Studio</p>
+            <p><strong className="text-zinc-200">Tweak&amp;Build OS</strong> — Internal operating system for Tweak &amp; Build Studio</p>
             <p>Modules: Outbound (Lead Engine) + Inbound (Growth Engine)</p>
             <p className="text-xs text-zinc-600 mt-4">Internal Tool — Tweak & Build Studio {new Date().getFullYear()}</p>
           </div>

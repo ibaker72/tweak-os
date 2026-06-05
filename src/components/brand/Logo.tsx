@@ -1,47 +1,37 @@
 import { cn } from "@/lib/utils";
 
-type LogoVariant = "full" | "mark";
+type LogoVariant = "full" | "wordmark" | "mark";
 type LogoTone = "dark" | "light";
 
 interface LogoProps {
+  /** "full" = mark + wordmark + OS pill, "wordmark" = wordmark + OS pill, "mark" = icon only. */
   variant?: LogoVariant;
-  /** "dark" = white wordmark on dark surface (default); "light" = dark wordmark on light surface. */
+  /** "dark" = "Tweak" reads as white on a dark surface (default). "light" = "Tweak" reads as near-black on a light surface. */
   tone?: LogoTone;
-  className?: string;
-  /** Pixel size of the mark. Wordmark scales relative to it. Default 32. */
+  /** Pixel size of the mark. Wordmark + OS pill scale relative to it. Default 32. */
   size?: number;
-  /** Override wordmark text. Default: "Tweak & Build". */
-  wordmark?: string;
+  className?: string;
 }
 
 /**
- * Brand logo for app.tweakandbuild.com.
- * Renders a lime rounded-square mark with a dark chevron and the
- * "Tweak & Build" wordmark beside it.
+ * Brand logo for app.tweakandbuild.com (the internal platform).
+ * Wordmark reads "Tweak&Build OS" — white "Tweak", lime "&Build", and a
+ * lime-text OS pill. Distinct from the public Tweak & Build agency mark.
  */
 export function Logo({
   variant = "full",
   tone = "dark",
-  className,
   size = 32,
-  wordmark = "Tweak & Build",
+  className,
 }: LogoProps) {
-  const textColor = tone === "dark" ? "text-zinc-50" : "text-zinc-950";
+  if (variant === "mark") {
+    return <BrandMark size={size} className={className} />;
+  }
 
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <BrandMark size={size} />
-      {variant === "full" && (
-        <span
-          className={cn(
-            "font-semibold tracking-tight",
-            textColor
-          )}
-          style={{ fontSize: Math.round(size * 0.5) }}
-        >
-          {wordmark}
-        </span>
-      )}
+      {variant === "full" && <BrandMark size={size} />}
+      <Wordmark size={size} tone={tone} />
     </span>
   );
 }
@@ -52,8 +42,8 @@ interface BrandMarkProps {
 }
 
 /**
- * Just the lime rounded-square + chevron mark. Used in the sidebar header,
- * favicon, login screen, proposal header, etc.
+ * Lime rounded-square + dark chevron mark. Used standalone for favicon,
+ * PWA icons, collapsed sidebar, and any space-constrained surface.
  */
 export function BrandMark({ size = 32, className }: BrandMarkProps) {
   return (
@@ -75,5 +65,40 @@ export function BrandMark({ size = 32, className }: BrandMarkProps) {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+interface WordmarkProps {
+  size: number;
+  tone: LogoTone;
+}
+
+function Wordmark({ size, tone }: WordmarkProps) {
+  const fontSize = Math.round(size * 0.5);
+  const pillFontSize = Math.max(9, Math.round(size * 0.32));
+  const tweakColor = tone === "dark" ? "text-zinc-50" : "text-zinc-950";
+  const pillBorder =
+    tone === "dark" ? "border-zinc-700/80 bg-zinc-900/60" : "border-zinc-300 bg-white";
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="font-semibold tracking-tight leading-none"
+        style={{ fontSize }}
+      >
+        <span className={tweakColor}>Tweak</span>
+        <span className="text-lime-400">&amp;Build</span>
+      </span>
+      <span
+        className={cn(
+          "inline-flex items-center rounded-md border px-1.5 py-0.5 font-semibold uppercase leading-none tracking-wider text-lime-400",
+          pillBorder
+        )}
+        style={{ fontSize: pillFontSize }}
+        aria-label="OS"
+      >
+        OS
+      </span>
+    </span>
   );
 }

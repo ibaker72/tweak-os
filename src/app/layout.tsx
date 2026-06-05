@@ -2,15 +2,15 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tweak OS — Tweak & Build",
+  title: "Tweak&Build OS",
   description:
-    "Internal operating system for Tweak & Build Studio — leads, growth, and content management",
+    "Internal sales and growth platform for Tweak & Build Studio — leads, research, proposals, and content.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Tweak OS",
+  applicationName: "Tweak&Build OS",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Tweak OS",
+    title: "Tweak&Build OS",
   },
   icons: {
     icon: [

@@ -102,7 +102,7 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
       {/* Logo */}
       <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-5">
         <Link href="/dashboard" onClick={onMobileClose}>
-          <Logo size={32} wordmark="Tweak & Build" />
+          <Logo size={32} />
         </Link>
         {/* Close button: visible only on mobile */}
         <button

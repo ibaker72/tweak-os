@@ -11,7 +11,7 @@ import {
   Compass,
   BookmarkCheck,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand/Logo";
+import { Logo } from "@/components/brand/Logo";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -29,20 +29,12 @@ export function DashboardSidebar() {
     <aside className="fixed left-0 top-0 z-30 flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
-        <a
-          href="https://tweakandbuild.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 transition-opacity hover:opacity-80"
+        <Link
+          href="/dashboard"
+          className="transition-opacity hover:opacity-80"
         >
-          <BrandMark size={32} />
-          <div>
-            <span className="text-sm font-bold text-zinc-50">
-              Tweak & Build
-            </span>
-            <p className="text-[10px] text-zinc-500">Lead Finder</p>
-          </div>
-        </a>
+          <Logo size={32} />
+        </Link>
       </div>
 
       {/* Navigation */}

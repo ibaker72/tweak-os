@@ -128,7 +128,7 @@ export default function UnifiedDashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Dashboard</h1>
-        <p className="mt-1 text-sm text-zinc-400">Cross-module overview of Tweak OS</p>
+        <p className="mt-1 text-sm text-zinc-400">Cross-module overview of Tweak&amp;Build OS</p>
       </div>
 
       {/* Action Items */}
