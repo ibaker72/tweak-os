@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Zap,
   LayoutDashboard,
   Users,
   Compass,
@@ -21,6 +20,8 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/brand/Logo";
+import { InstallAppButton } from "./InstallAppButton";
 import { SmartListsSidebar } from "./SmartListsSidebar";
 
 interface NavItem {
@@ -100,13 +101,8 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
     <>
       {/* Logo */}
       <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-5">
-        <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onMobileClose}>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime-400">
-            <Zap className="h-4 w-4 text-zinc-950" />
-          </div>
-          <span className="text-base font-semibold text-zinc-100">
-            Tweak OS
-          </span>
+        <Link href="/dashboard" onClick={onMobileClose}>
+          <Logo size={32} wordmark="Tweak & Build" />
         </Link>
         {/* Close button: visible only on mobile */}
         <button
@@ -163,6 +159,11 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
           onClick={onMobileClose}
         />
       </nav>
+
+      {/* Install App */}
+      <div className="border-t border-zinc-800 px-4 py-3">
+        <InstallAppButton />
+      </div>
 
       {/* API Usage */}
       <div className="border-t border-zinc-800 px-4 py-4">

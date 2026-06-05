@@ -8,11 +8,10 @@ import {
   Users,
   Upload,
   Download,
-  Search,
   Compass,
   BookmarkCheck,
-  Zap,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand/Logo";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -36,9 +35,7 @@ export function DashboardSidebar() {
           rel="noopener noreferrer"
           className="flex items-center gap-3 transition-opacity hover:opacity-80"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime-400/10">
-            <Zap className="h-4 w-4 text-lime-400" />
-          </div>
+          <BrandMark size={32} />
           <div>
             <span className="text-sm font-bold text-zinc-50">
               Tweak & Build

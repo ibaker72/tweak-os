@@ -30,6 +30,7 @@ import {
 } from "@/lib/proposals/types";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatDate } from "@/lib/utils";
+import { Logo } from "@/components/brand/Logo";
 
 function moneyFmt(n: number): string {
   return `$${n.toLocaleString("en-US")}`;
@@ -450,10 +451,8 @@ export function ProposalsPageInner() {
               >
                 {proposal ? (
                   <>
-                    <div className="mb-5 border-b border-zinc-800 pb-3 print:border-zinc-300">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-lime-400 print:text-zinc-700">
-                        Tweak &amp; Build
-                      </p>
+                    <div className="mb-5 flex items-center justify-between gap-4 border-b border-zinc-800 pb-3 print:border-zinc-300">
+                      <Logo size={32} />
                       <p className="text-sm text-zinc-400 print:text-zinc-700">
                         Proposal {clientName ? `for ${clientName}` : ""}
                       </p>
