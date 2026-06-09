@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/proposals/sections";
+import type { ProposalSections } from "@/lib/proposals/types";
 
 // GET /api/proposals — list recent proposals
 export async function GET() {
@@ -9,7 +11,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("proposals")
       .select(
-        "id, lead_id, client_name, business_type, services_json, proposal_html, total_one_time, total_monthly, status, created_at"
+        "id, lead_id, audit_id, client_name, business_type, website_url, recipient_name, recipient_email, services_json, proposal_html, proposal_sections, proposal_text, pdf_url, total_one_time, total_monthly, status, sent_at, last_edited_at, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(50);
@@ -30,15 +32,31 @@ const serviceSchema = z.object({
   billing: z.enum(["one-time", "monthly"]),
 });
 
-const saveSchema = z.object({
-  client_name: z.string().default(""),
-  business_type: z.string().default(""),
-  selected_services: z.array(serviceSchema).default([]),
-  proposal_html: z.string().default(""),
-  lead_id: z.string().uuid().optional(),
+const sectionsSchema = z.object({
+  executive_summary: z.string().default(""),
+  what_we_found: z.string().default(""),
+  our_recommendation: z.string().default(""),
+  investment_summary: z.string().default(""),
+  what_happens_next: z.string().default(""),
+  about: z.string().default(""),
+  custom_notes: z.string().default(""),
 });
 
-// POST /api/proposals — save a proposal explicitly (e.g. from "Save Proposal" button)
+const saveSchema = z.object({
+  id: z.string().uuid().optional(),
+  client_name: z.string().default(""),
+  business_type: z.string().default(""),
+  website_url: z.string().default(""),
+  recipient_name: z.string().default(""),
+  recipient_email: z.string().email().or(z.literal("")).default(""),
+  selected_services: z.array(serviceSchema).default([]),
+  proposal_sections: sectionsSchema.optional(),
+  proposal_html: z.string().default(""),
+  lead_id: z.string().uuid().optional(),
+  audit_id: z.string().uuid().optional(),
+});
+
+// POST /api/proposals — save (insert) or upsert a proposal explicitly
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -50,19 +68,44 @@ export async function POST(request: NextRequest) {
       .filter((s) => s.billing === "monthly")
       .reduce((a, s) => a + s.price, 0);
 
+    const sections = input.proposal_sections as ProposalSections | undefined;
+    const md = sections
+      ? sectionsToMarkdown(sections)
+      : input.proposal_html || "";
+    const txt = sections ? sectionsToPlainText(sections) : "";
+
+    const row = {
+      lead_id: input.lead_id ?? null,
+      audit_id: input.audit_id ?? null,
+      client_name: input.client_name || null,
+      business_type: input.business_type || null,
+      website_url: input.website_url || null,
+      recipient_name: input.recipient_name || null,
+      recipient_email: input.recipient_email || null,
+      services_json: input.selected_services,
+      proposal_html: md,
+      proposal_sections: sections ?? {},
+      proposal_text: txt || null,
+      total_one_time,
+      total_monthly,
+      status: "saved" as const,
+      last_edited_at: new Date().toISOString(),
+    };
+
     const supabase = await createClient();
+    if (input.id) {
+      const { data, error } = await supabase
+        .from("proposals")
+        .update(row)
+        .eq("id", input.id)
+        .select("id, created_at")
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ success: true, proposal: data });
+    }
     const { data, error } = await supabase
       .from("proposals")
-      .insert({
-        lead_id: input.lead_id ?? null,
-        client_name: input.client_name || null,
-        business_type: input.business_type || null,
-        services_json: input.selected_services,
-        proposal_html: input.proposal_html,
-        total_one_time,
-        total_monthly,
-        status: "draft",
-      })
+      .insert(row)
       .select("id, created_at")
       .single();
     if (error) throw error;
@@ -84,7 +127,7 @@ export async function POST(request: NextRequest) {
 
 const patchSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["draft", "sent", "won", "lost"]).optional(),
+  status: z.enum(["draft", "saved", "sent", "won", "lost"]).optional(),
 });
 
 // PATCH /api/proposals — update status of a proposal

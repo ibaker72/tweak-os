@@ -7,6 +7,10 @@ import {
   buildProposalUserPrompt,
   calculateTotals,
 } from "@/lib/proposals/generate";
+import {
+  parseSectionsFromMarkdown,
+  sectionsToPlainText,
+} from "@/lib/proposals/sections";
 import type { AuditJson } from "@/lib/audits/types";
 import type { ProposalService } from "@/lib/proposals/types";
 
@@ -124,15 +128,22 @@ export async function POST(request: NextRequest) {
 
         // Persist after streaming completes (best-effort).
         try {
+          const sections = parseSectionsFromMarkdown(fullText);
+          const plain = sectionsToPlainText(sections);
           await supabase.from("proposals").insert({
             lead_id: input.lead_id ?? null,
+            audit_id: input.audit_id ?? null,
             client_name: input.client_name || null,
             business_type: input.business_type || null,
+            website_url: input.website_url || null,
             services_json: input.selected_services,
             proposal_html: fullText,
+            proposal_sections: sections,
+            proposal_text: plain,
             total_one_time,
             total_monthly,
             status: "draft",
+            last_edited_at: new Date().toISOString(),
           });
         } catch (err) {
           console.error("Proposal persist error:", err);
