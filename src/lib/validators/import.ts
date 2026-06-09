@@ -1,49 +1,47 @@
 import { z } from "zod";
 
+const optionalTrimmed = z
+  .string()
+  .optional()
+  .nullable()
+  .transform((v) => (v == null ? undefined : v.trim() || undefined));
+
 export const csvLeadRowSchema = z.object({
-  business_name: z
-    .string()
-    .min(1, "Business name is required")
-    .transform((v) => v.trim()),
-  city: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
-  state: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
+  business_name: z.preprocess(
+    (v) => (v == null ? "" : v),
+    z
+      .string()
+      .transform((v) => v.trim())
+      .refine((v) => v.length > 0, "Business name is required")
+  ),
+  city: optionalTrimmed,
+  state: optionalTrimmed,
   website: z
     .string()
     .optional()
+    .nullable()
     .transform((v) => {
-      if (!v?.trim()) return undefined;
+      if (v == null) return undefined;
       const trimmed = v.trim();
-      if (trimmed && !trimmed.startsWith("http")) {
+      if (!trimmed) return undefined;
+      if (!/^https?:\/\//i.test(trimmed)) {
         return `https://${trimmed}`;
       }
       return trimmed;
     }),
-  phone: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
-  email: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
-  source: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
-  niche: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
-  industry: z
-    .string()
-    .optional()
-    .transform((v) => v?.trim() || undefined),
+  phone: optionalTrimmed,
+  email: optionalTrimmed,
+  source: optionalTrimmed,
+  niche: optionalTrimmed,
+  industry: optionalTrimmed,
+
+  // NJ Business Records fields
+  external_id: optionalTrimmed,
+  entity_type: optionalTrimmed,
+  entity_status: optionalTrimmed,
+  registered_agent: optionalTrimmed,
+  source_filing_date: optionalTrimmed,
+  import_notes: optionalTrimmed,
 });
 
 export type ValidatedCsvRow = z.infer<typeof csvLeadRowSchema>;
