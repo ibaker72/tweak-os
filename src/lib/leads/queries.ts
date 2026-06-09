@@ -289,6 +289,37 @@ export async function checkDuplicateLead(
   return (count ?? 0) > 0;
 }
 
+// Stronger duplicate check for state-registry imports:
+// matches on external_id first (most reliable), then business_name + state.
+export async function findDuplicateLeadForImport(
+  supabase: SupabaseClient,
+  args: {
+    business_name: string;
+    state: string | undefined;
+    external_id: string | undefined;
+  }
+): Promise<{ duplicate: true; matchedBy: "external_id" | "name_state" } | { duplicate: false }> {
+  if (args.external_id) {
+    const { count } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("external_id", args.external_id);
+    if ((count ?? 0) > 0) return { duplicate: true, matchedBy: "external_id" };
+  }
+
+  let nameQuery = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .ilike("business_name", args.business_name);
+  if (args.state) {
+    nameQuery = nameQuery.ilike("state", args.state);
+  }
+  const { count } = await nameQuery;
+  if ((count ?? 0) > 0) return { duplicate: true, matchedBy: "name_state" };
+
+  return { duplicate: false };
+}
+
 export async function getSavedSearches(
   supabase: SupabaseClient
 ): Promise<SavedSearch[]> {

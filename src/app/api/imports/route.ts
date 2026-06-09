@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseCsvContent } from "@/lib/leads/csv";
-import { insertLead } from "@/lib/leads/mutations";
 import {
+  insertLead,
   createImportJob,
   updateImportJob,
 } from "@/lib/leads/mutations";
-import { checkDuplicateLead } from "@/lib/leads/queries";
+import { findDuplicateLeadForImport } from "@/lib/leads/queries";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     const csvText = await file.text();
-    const { valid, errors, totalRows } = parseCsvContent(csvText);
+    const { valid, errors, totalRows, detectedFormat } = parseCsvContent(csvText);
 
     if (totalRows === 0) {
       return NextResponse.json(
@@ -36,28 +36,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create import job
     const jobId = await createImportJob(supabase, file.name, totalRows);
 
     let importedRows = 0;
-    let failedRows = errors.length;
-    const importErrors = [...errors];
+    let skippedDuplicates = 0;
+    const failures: { row: number; message: string }[] = [...errors];
 
-    // Insert valid rows
+    // Pre-populate failures for invalid rows we already know about.
+    let failedRows = errors.length;
+
     for (const row of valid) {
       try {
-        // Check for duplicates
-        const isDuplicate = await checkDuplicateLead(
-          supabase,
-          row.business_name,
-          row.website
-        );
-        if (isDuplicate) {
-          failedRows++;
-          importErrors.push({
-            row: 0,
-            message: `Duplicate: ${row.business_name}`,
-          });
+        const dup = await findDuplicateLeadForImport(supabase, {
+          business_name: row.business_name,
+          state: row.state,
+          external_id: row.external_id,
+        });
+        if (dup.duplicate) {
+          skippedDuplicates++;
           continue;
         }
 
@@ -65,26 +61,31 @@ export async function POST(request: NextRequest) {
         importedRows++;
       } catch (err) {
         failedRows++;
-        importErrors.push({
+        failures.push({
           row: 0,
-          message: `Failed to insert ${row.business_name}: ${err instanceof Error ? err.message : "Unknown error"}`,
+          message: `Failed to insert ${row.business_name}: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`,
         });
       }
     }
 
-    // Update job
     await updateImportJob(supabase, jobId, {
       imported_rows: importedRows,
-      failed_rows: failedRows,
+      failed_rows: failedRows + skippedDuplicates,
       status: "completed",
     });
 
     return NextResponse.json({
       job_id: jobId,
+      detected_format: detectedFormat,
       total_rows: totalRows,
       imported_rows: importedRows,
+      skipped_duplicates: skippedDuplicates,
       failed_rows: failedRows,
-      errors: importErrors.slice(0, 20), // Limit error list
+      // Keep `errors` for back-compat with existing UI.
+      errors: failures.slice(0, 10),
+      first_failure_reasons: failures.slice(0, 10).map((f) => f.message),
     });
   } catch (err) {
     console.error("Import error:", err);

@@ -7,10 +7,13 @@ import { Upload, FileText, CheckCircle, XCircle } from "lucide-react";
 
 interface ImportResult {
   job_id: string;
+  detected_format?: "standard" | "nj_business_records";
   total_rows: number;
   imported_rows: number;
+  skipped_duplicates?: number;
   failed_rows: number;
   errors: { row: number; message: string }[];
+  first_failure_reasons?: string[];
 }
 
 export function ImportCsvForm() {
@@ -70,7 +73,10 @@ export function ImportCsvForm() {
                 {file ? file.name : "Click to select a CSV file"}
               </p>
               <p className="mt-1 text-xs text-zinc-600">
-                Columns: business_name, website, phone, email, city, state, industry
+                Standard columns: business_name, website, phone, email, city, state, industry
+              </p>
+              <p className="mt-1 text-xs text-zinc-600">
+                Also accepts: NJ Business Entity List exports (BusinessName, BusinessID, FilingDate, …)
               </p>
               <input
                 ref={inputRef}
@@ -105,26 +111,39 @@ export function ImportCsvForm() {
       {result && (
         <Card className="border-lime-900">
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <CheckCircle className="h-5 w-5 text-lime-400" />
-              <div>
-                <p className="text-sm font-medium text-zinc-50">
-                  Import Complete
-                </p>
-                <p className="text-xs text-zinc-400">
-                  {result.imported_rows} of {result.total_rows} rows imported
-                  {result.failed_rows > 0 &&
-                    ` (${result.failed_rows} failed)`}
-                </p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-zinc-50">Import Complete</p>
+                {result.detected_format === "nj_business_records" && (
+                  <p className="text-xs text-zinc-500">
+                    Detected format: NJ Business Records
+                  </p>
+                )}
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-400">
+                  <dt>Total rows</dt>
+                  <dd className="text-zinc-200">{result.total_rows}</dd>
+                  <dt>Imported</dt>
+                  <dd className="text-zinc-200">{result.imported_rows}</dd>
+                  <dt>Skipped duplicates</dt>
+                  <dd className="text-zinc-200">{result.skipped_duplicates ?? 0}</dd>
+                  <dt>Failed</dt>
+                  <dd className="text-zinc-200">{result.failed_rows}</dd>
+                </dl>
               </div>
             </div>
-            {result.errors.length > 0 && (
-              <div className="mt-3 max-h-40 overflow-y-auto rounded-md bg-zinc-900 p-3">
-                {result.errors.map((err, i) => (
-                  <p key={i} className="text-xs text-zinc-500">
-                    {err.message}
-                  </p>
-                ))}
+            {result.first_failure_reasons && result.first_failure_reasons.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-zinc-300">
+                  First {result.first_failure_reasons.length} failure reasons:
+                </p>
+                <div className="mt-1 max-h-40 overflow-y-auto rounded-md bg-zinc-900 p-3">
+                  {result.first_failure_reasons.map((msg, i) => (
+                    <p key={i} className="text-xs text-zinc-500">
+                      {msg}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
