@@ -2,7 +2,7 @@
 // Proposal Types
 // ============================================
 
-export type ProposalStatus = "draft" | "sent" | "won" | "lost";
+export type ProposalStatus = "draft" | "saved" | "sent" | "won" | "lost";
 
 export type Billing = "one-time" | "monthly";
 
@@ -22,16 +22,65 @@ export interface ProposalInput {
   lead_id?: string;
 }
 
+/**
+ * The seven editable sections that make up a proposal. Each is plain
+ * markdown so the composer can show one textarea per section and the
+ * preview can re-render them together as one document.
+ */
+export interface ProposalSections {
+  executive_summary: string;
+  what_we_found: string;
+  our_recommendation: string;
+  investment_summary: string;
+  what_happens_next: string;
+  about: string;
+  custom_notes: string;
+}
+
+export const SECTION_ORDER: (keyof ProposalSections)[] = [
+  "executive_summary",
+  "what_we_found",
+  "our_recommendation",
+  "investment_summary",
+  "what_happens_next",
+  "about",
+  "custom_notes",
+];
+
+export const SECTION_TITLES: Record<keyof ProposalSections, string> = {
+  executive_summary: "Executive Summary",
+  what_we_found: "What We Found",
+  our_recommendation: "Our Recommendation",
+  investment_summary: "Investment Summary",
+  what_happens_next: "What Happens Next",
+  about: "About Tweak & Build",
+  custom_notes: "Custom Notes",
+};
+
+export interface ProposalTotals {
+  total_one_time: number;
+  total_monthly: number;
+}
+
 export interface Proposal {
   id: string;
   lead_id: string | null;
+  audit_id?: string | null;
   client_name: string | null;
   business_type: string | null;
+  website_url?: string | null;
+  recipient_name?: string | null;
+  recipient_email?: string | null;
   services_json: ProposalService[] | null;
   proposal_html: string | null;
+  proposal_sections?: Partial<ProposalSections> | null;
+  proposal_text?: string | null;
+  pdf_url?: string | null;
   total_one_time: number;
   total_monthly: number;
   status: ProposalStatus;
+  sent_at?: string | null;
+  last_edited_at?: string | null;
   created_at: string;
 }
 
@@ -151,11 +200,18 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
 ];
 
 export const BUSINESS_TYPES = [
-  "HVAC / Contractor",
-  "Dealership",
+  "Home Services",
+  "Contractor / Trades",
+  "Garage Door Contractor",
+  "HVAC",
+  "Plumbing",
+  "Roofing",
+  "Auto Dealer",
   "Restaurant",
-  "Retail",
   "Professional Services",
   "Real Estate",
+  "Retail",
   "Other",
 ] as const;
+
+export type BusinessType = (typeof BUSINESS_TYPES)[number];

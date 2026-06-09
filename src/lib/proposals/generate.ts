@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ProposalInput, ProposalService } from "./types";
 import type { AuditJson } from "@/lib/audits/types";
+import { softenLeadLossClaim, softenSummary } from "./sections";
 
 const PROPOSAL_MODEL = "claude-sonnet-4-20250514";
 const PROPOSAL_MAX_TOKENS = 2500;
@@ -14,7 +15,14 @@ function getClient(): Anthropic {
   return _client;
 }
 
-export const PROPOSAL_SYSTEM_PROMPT = `You are a senior strategist at Tweak & Build, a founder-led web and marketing agency. Write professional, confident, specific proposals. No fluff. Speak directly to the business owner. Use their business name and website throughout.`;
+export const PROPOSAL_SYSTEM_PROMPT = `You are a senior strategist at Tweak & Build, a founder-led web and marketing agency. Write professional, confident, specific proposals.
+
+CRITICAL CREDIBILITY RULES:
+- Never claim exact numbers of "leads lost per month" unless backed by search-volume data the user explicitly provided.
+- Use soft, defensible phrasing like "may be missing a meaningful number of local leads" or "strong opportunity to capture more local search demand."
+- Never guarantee rankings, lead counts, or revenue outcomes.
+- Speak directly to the business owner; use their business name and website throughout.
+- No fluff. No hype. No emojis.`;
 
 export function calculateTotals(services: ProposalService[]): {
   total_one_time: number;
@@ -58,8 +66,8 @@ export function buildProposalUserPrompt(
         `- GBP issues: ${audit.gbp_issues.join(", ") || "(none)"}`,
         `- Competitor gaps: ${audit.competitor_gaps.join(", ") || "(none)"}`,
         `- Top recommendations: ${audit.top_3_recommendations.join("; ") || "(none)"}`,
-        `- Estimated leads lost/month: ${audit.estimated_monthly_leads_lost}`,
-        `- Summary: ${audit.summary}`,
+        `- Opportunity framing (use this phrasing, do NOT cite exact lead numbers): "${softenLeadLossClaim(audit)}"`,
+        `- Softened summary: ${softenSummary(audit.summary)}`,
       ].join("\n")
     : "";
 
@@ -79,18 +87,19 @@ NOTES FROM SALES AGENT:
 ${input.notes || "(none)"}
 ${auditSection}
 
-Generate a professional proposal with exactly these 6 sections.
+Generate a professional proposal with exactly these 7 sections.
 Use markdown formatting with ## for section headers.
 
 ## Executive Summary
-2-3 sentences. Personalized to their business and situation.
+2-3 sentences. Personalized to their business and situation. Use the softened opportunity framing above — DO NOT invent exact lead numbers.
 
 ## What We Found
-If audit data provided: bullet points of top issues found.
+If audit data provided: 3-5 bullet points of the top issues found, each tied to an action.
 If no audit: 3 general bullets about common problems for their business type.
+Use conservative language — "may be", "appears to be", "opportunity to" — never absolute claims.
 
 ## Our Recommendation
-Which services you recommend and specifically why, tied to their situation.
+Which services you recommend and specifically why, tied to their situation. One short paragraph + bulleted list of selected services with one-sentence rationale each.
 
 ## Investment Summary
 Markdown table with columns: Service | Price | Billing
@@ -103,7 +112,10 @@ Keep brief.
 
 ## About Tweak & Build
 Exactly 2 sentences:
-'Tweak & Build is a founder-led product engineering studio based in New Jersey. We built speedwaymotorsllc.com and ppmechanicalllc.com — custom systems that generate real leads for real businesses.'`;
+'Tweak & Build is a founder-led product engineering studio based in New Jersey. We built speedwaymotorsllc.com and ppmechanicalllc.com — custom systems that generate real leads for real businesses.'
+
+## Custom Notes
+Leave this section empty or include 1-2 lines pulled from the sales agent's notes if relevant. If there are no relevant notes, just write a single line: "—".`;
 }
 
 export async function streamProposal(
