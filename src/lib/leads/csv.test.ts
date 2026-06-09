@@ -90,4 +90,33 @@ describe("parseCsvContent — NJ Business Records format", () => {
     const { valid } = parseCsvContent(csv);
     expect(valid[0].state).toBe("NJ");
   });
+
+  it("maps registered-agent address fields to address/zip", () => {
+    const csv = [
+      "BusinessID,BusinessName,Status,StateDom,RegAgent,RegAgentStreet,RegAgentCity,RegAgentZip",
+      "222,Tidy Trades LLC,Active,NJ,Jane Doe,123 Main St,Newark,07102",
+    ].join("\n");
+
+    const { valid, errors } = parseCsvContent(csv);
+    expect(errors).toEqual([]);
+    expect(valid[0].address).toBe("123 Main St");
+    expect(valid[0].city).toBe("Newark");
+    expect(valid[0].zip).toBe("07102");
+    // Address info should also appear in import_notes for completeness.
+    expect(valid[0].import_notes).toContain("RegAgentAddress: 123 Main St");
+    expect(valid[0].import_notes).toContain("RegAgentZip: 07102");
+  });
+
+  it("accepts alternative registered-agent address column spellings", () => {
+    // BusinessName + RegAgent satisfy the NJ format detector; the address
+    // columns vary by export type so we accept several spellings.
+    const csv = [
+      "BusinessName,RegAgent,RegAgentAddress1,RegAgentZIPCode",
+      "Alt Address Co,Jane,42 Elm Ave,08540",
+    ].join("\n");
+
+    const { valid } = parseCsvContent(csv);
+    expect(valid[0].address).toBe("42 Elm Ave");
+    expect(valid[0].zip).toBe("08540");
+  });
 });

@@ -65,6 +65,29 @@ function normalizeNjRow(row: Record<string, unknown>): Record<string, unknown> {
     "RegAgentCity",
     "MainOfficeCity",
   ]);
+  const address = pickByNormalizedKey(row, [
+    "Address",
+    "RegAgentStreet",
+    "RegAgentAddress",
+    "RegAgentAddress1",
+    "RegAgentAddr",
+    "RegAgentStreet1",
+    "MainOfficeStreet",
+    "MainOfficeAddress",
+    "PrincipalOfficeStreet",
+    "PrincipalOfficeAddress",
+  ]);
+  const zip = pickByNormalizedKey(row, [
+    "Zip",
+    "ZipCode",
+    "PostalCode",
+    "RegAgentZip",
+    "RegAgentZipCode",
+    "RegAgentZIPCode",
+    "RegAgentPostalCode",
+    "MainOfficeZip",
+    "MainOfficePostalCode",
+  ]);
   const website = pickByNormalizedKey(row, ["Website", "URL"]);
   const phone = pickByNormalizedKey(row, ["Phone", "PhoneNumber", "Telephone"]);
   const email = pickByNormalizedKey(row, ["Email", "EmailAddress"]);
@@ -74,6 +97,8 @@ function normalizeNjRow(row: Record<string, unknown>): Record<string, unknown> {
     business_name: businessName,
     state: stateDom || "NJ",
     city,
+    address,
+    zip,
     website,
     phone,
     email,
@@ -84,12 +109,17 @@ function normalizeNjRow(row: Record<string, unknown>): Record<string, unknown> {
     entity_status: status,
     registered_agent: regAgent,
     source_filing_date: filingDate,
+    // Always echo NJ metadata into import_notes so nothing is lost when
+    // dedicated columns are null or trimmed by the DB driver.
     import_notes: buildImportNotes([
       ["BusinessID", businessId],
       ["FilingDate", filingDate],
       ["TypeCode", typeCode],
       ["Status", status],
       ["RegAgent", regAgent],
+      ["RegAgentAddress", address],
+      ["RegAgentCity", city],
+      ["RegAgentZip", zip],
     ]),
   };
 }

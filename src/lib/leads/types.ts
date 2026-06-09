@@ -38,6 +38,8 @@ export interface OutreachData {
   linkedin_dm?: string;
   follow_up_email?: string;
   pricing_tier?: string;
+  sms?: string;
+  call_opener?: string;
 }
 
 export interface Lead {
@@ -74,6 +76,15 @@ export interface Lead {
   manual_notes: string | null;
   source: string | null;
   enrichment_error: string | null;
+  contact_status: string | null;
+  online_presence: string | null;
+  enrichment_summary: string | null;
+  external_id: string | null;
+  entity_type: string | null;
+  entity_status: string | null;
+  registered_agent: string | null;
+  source_filing_date: string | null;
+  import_notes: string | null;
   contacted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -101,6 +112,7 @@ export interface ImportJob {
   filename: string;
   total_rows: number;
   imported_rows: number;
+  skipped_rows: number;
   failed_rows: number;
   status: JobStatus;
   created_at: string;

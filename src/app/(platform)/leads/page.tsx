@@ -62,25 +62,23 @@ export default async function LeadsPage({
   return (
     <div className="space-y-6">
       <DashboardHeader title="Leads" description={`${count} total leads`}>
-        <div className="flex items-center gap-2">
-          <Link href="/leads/discover">
-            <Button variant="outline" size="sm">
-              <Compass className="h-4 w-4" />
-              Discover
-            </Button>
-          </Link>
-          <Link href="/leads/import">
-            <Button variant="outline" size="sm">
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </Button>
-          </Link>
-          <a href="/api/exports">
-            <Button variant="outline" size="sm">
-              Export
-            </Button>
-          </a>
-        </div>
+        <Link href="/leads/discover" className="w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            <Compass className="h-4 w-4" />
+            Discover
+          </Button>
+        </Link>
+        <Link href="/leads/import" className="w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </Button>
+        </Link>
+        <a href="/api/exports" className="w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            Export
+          </Button>
+        </a>
       </DashboardHeader>
 
       <LeadsFilters currentFilters={rawParams} />

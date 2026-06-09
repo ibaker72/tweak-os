@@ -163,7 +163,51 @@ export function LeadsTable({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-800">
+      {/* Mobile-only card list — easier to scan and tap than a wide table */}
+      <div className="space-y-2 md:hidden">
+        {leads.map((lead) => (
+          <div
+            key={lead.id}
+            className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
+          >
+            <div className="flex items-start gap-3">
+              <button
+                onClick={() => toggleSelect(lead.id)}
+                className="mt-1 text-zinc-500 hover:text-zinc-300"
+                aria-label={selected.has(lead.id) ? "Deselect lead" : "Select lead"}
+              >
+                {selected.has(lead.id) ? (
+                  <CheckSquare className="h-5 w-5 text-lime-400" />
+                ) : (
+                  <Square className="h-5 w-5" />
+                )}
+              </button>
+              <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium text-zinc-50">
+                  {lead.business_name}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-zinc-500">
+                  {[lead.city, lead.state].filter(Boolean).join(", ") || lead.website?.replace(/https?:\/\//, "") || "—"}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <ScoreIndicator score={lead.score} />
+                  <LifecycleStatusBadge status={lead.lifecycle_status} />
+                  {lead.niche && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {truncate(lead.niche, 20)}
+                    </Badge>
+                  )}
+                  {lead.source === "NJ Business Records" && (
+                    <Badge variant="info" className="text-[10px]">NJ</Badge>
+                  )}
+                </div>
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-zinc-800 md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>

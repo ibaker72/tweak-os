@@ -172,8 +172,8 @@ export function LeadDetailExtras({ lead, agents }: LeadDetailExtrasProps) {
       {/* Outreach Timeline */}
       <OutreachTimeline leadId={lead.id} />
 
-      {/* Quick Actions Bar */}
-      <div className="sticky bottom-4 z-20">
+      {/* Quick Actions Bar — desktop only; mobile uses the new primary action bar in lead-detail-card */}
+      <div className="hidden md:block sticky bottom-4 z-20">
         <Card className="border-zinc-700 bg-zinc-900/95 backdrop-blur-sm shadow-xl">
           <CardContent className="flex flex-wrap items-center gap-2 p-3">
             <span className="mr-2 text-xs font-medium text-zinc-500">Quick Actions:</span>

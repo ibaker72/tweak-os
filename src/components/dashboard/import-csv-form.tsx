@@ -63,35 +63,36 @@ export function ImportCsvForm() {
           <CardTitle className="text-lg">Upload CSV</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div
-              className="flex-1 cursor-pointer rounded-lg border-2 border-dashed border-zinc-700 p-8 text-center transition-colors hover:border-zinc-500"
-              onClick={() => inputRef.current?.click()}
-            >
-              <Upload className="mx-auto h-8 w-8 text-zinc-500" />
-              <p className="mt-2 text-sm text-zinc-400">
-                {file ? file.name : "Click to select a CSV file"}
-              </p>
-              <p className="mt-1 text-xs text-zinc-600">
-                Standard columns: business_name, website, phone, email, city, state, industry
-              </p>
-              <p className="mt-1 text-xs text-zinc-600">
-                Also accepts: NJ Business Entity List exports (BusinessName, BusinessID, FilingDate, …)
-              </p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
+          <div
+            className="cursor-pointer rounded-lg border-2 border-dashed border-zinc-700 px-4 py-10 text-center transition-colors hover:border-zinc-500 sm:px-6 sm:py-8"
+            onClick={() => inputRef.current?.click()}
+          >
+            <Upload className="mx-auto h-10 w-10 text-zinc-500 sm:h-8 sm:w-8" />
+            <p className="mt-3 break-words text-sm text-zinc-300">
+              {file ? file.name : "Tap to select a CSV file"}
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              <span className="block sm:inline">Standard:</span>{" "}
+              <span className="text-zinc-400">business_name, website, phone, email, city, state, industry</span>
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              <span className="block sm:inline">Also accepts:</span>{" "}
+              <span className="text-zinc-400">NJ Business Entity List exports (BusinessName, BusinessID, FilingDate, …)</span>
+            </p>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
           </div>
 
           <Button
             onClick={handleUpload}
             disabled={!file || uploading}
             className="w-full"
+            size="lg"
           >
             <FileText className="h-4 w-4" />
             {uploading ? "Importing..." : "Import CSV"}
@@ -120,15 +121,11 @@ export function ImportCsvForm() {
                     Detected format: NJ Business Records
                   </p>
                 )}
-                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-400">
-                  <dt>Total rows</dt>
-                  <dd className="text-zinc-200">{result.total_rows}</dd>
-                  <dt>Imported</dt>
-                  <dd className="text-zinc-200">{result.imported_rows}</dd>
-                  <dt>Skipped duplicates</dt>
-                  <dd className="text-zinc-200">{result.skipped_duplicates ?? 0}</dd>
-                  <dt>Failed</dt>
-                  <dd className="text-zinc-200">{result.failed_rows}</dd>
+                <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <ResultStat label="Total" value={result.total_rows} tone="muted" />
+                  <ResultStat label="Imported" value={result.imported_rows} tone="success" />
+                  <ResultStat label="Skipped" value={result.skipped_duplicates ?? 0} tone="warn" />
+                  <ResultStat label="Failed" value={result.failed_rows} tone="danger" />
                 </dl>
               </div>
             </div>
@@ -149,6 +146,33 @@ export function ImportCsvForm() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function ResultStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "muted" | "success" | "warn" | "danger";
+}) {
+  const color =
+    tone === "success"
+      ? "text-lime-400"
+      : tone === "warn"
+        ? "text-amber-400"
+        : tone === "danger"
+          ? "text-red-400"
+          : "text-zinc-300";
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-center">
+      <dt className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        {label}
+      </dt>
+      <dd className={`mt-0.5 text-lg font-semibold ${color}`}>{value}</dd>
     </div>
   );
 }

@@ -51,13 +51,13 @@ export default async function LeadDetailPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 md:pb-0">
       <DashboardHeader
         title={lead.business_name}
         description={lead.website ?? undefined}
       >
-        <Link href="/leads">
-          <Button variant="outline" size="sm">
+        <Link href="/leads" className="w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
             <ArrowLeft className="h-4 w-4" />
             Back to Leads
           </Button>

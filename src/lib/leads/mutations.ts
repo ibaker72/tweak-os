@@ -19,6 +19,8 @@ export async function insertLead(
       business_name: row.business_name,
       city: row.city ?? null,
       state: row.state ?? null,
+      address: row.address ?? null,
+      zip: row.zip ?? null,
       website: row.website ?? null,
       email: row.email ?? null,
       phone: row.phone ?? null,
@@ -74,7 +76,13 @@ export async function updateLeadEnrichment(
   leadId: string,
   enrichment: EnrichmentResult,
   scoring: ScoreResult,
-  outreach?: OutreachData | null
+  outreach?: OutreachData | null,
+  extra?: {
+    contact_status?: string | null;
+    online_presence?: string | null;
+    enrichment_summary?: string | null;
+    niche?: string | null;
+  }
 ): Promise<void> {
   const updateData: Record<string, unknown> = {
     enrichment_status: "complete",
@@ -106,6 +114,68 @@ export async function updateLeadEnrichment(
     reasons: scoring.reasons,
     score_breakdown: scoring.breakdown,
   };
+
+  if (outreach) {
+    updateData.outreach = outreach;
+    updateData.pain_point_1 = outreach.pain_points?.[0] ?? null;
+    updateData.pain_point_2 = outreach.pain_points?.[1] ?? null;
+    updateData.offer_angle = outreach.offer_angle ?? null;
+    updateData.suggested_first_line = outreach.cold_email?.split("\n")[0] ?? null;
+  }
+
+  if (extra?.contact_status !== undefined) updateData.contact_status = extra.contact_status;
+  if (extra?.online_presence !== undefined) updateData.online_presence = extra.online_presence;
+  if (extra?.enrichment_summary !== undefined) updateData.enrichment_summary = extra.enrichment_summary;
+  // Only write niche when an industry guess was provided — never null out
+  // an existing niche that came from discovery or manual entry.
+  if (extra?.niche) updateData.niche = extra.niche;
+
+  const { error } = await supabase
+    .from("leads")
+    .update(updateData)
+    .eq("id", leadId);
+  if (error) throw error;
+}
+
+// Lighter update for leads enriched without a website (NJ startup path).
+// We do not have website-driven signals to write — just score, outreach,
+// and the new contact/presence/summary fields.
+export async function updateLeadEnrichmentLite(
+  supabase: SupabaseClient,
+  leadId: string,
+  scoring: ScoreResult,
+  outreach: OutreachData | null,
+  extra: {
+    contact_status: string;
+    online_presence: string;
+    enrichment_summary: string;
+    niche?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    google_rating?: number | null;
+    google_review_count?: number | null;
+    google_place_id?: string | null;
+  }
+): Promise<void> {
+  const updateData: Record<string, unknown> = {
+    enrichment_status: "complete",
+    enrichment_error: null,
+    score: scoring.score,
+    reasons: scoring.reasons,
+    score_breakdown: scoring.breakdown,
+    contact_status: extra.contact_status,
+    online_presence: extra.online_presence,
+    enrichment_summary: extra.enrichment_summary,
+  };
+  if (extra.niche) updateData.niche = extra.niche;
+  if (extra.phone !== undefined && extra.phone !== null) {
+    updateData.phone = extra.phone;
+    updateData.phone_1 = extra.phone;
+  }
+  if (extra.address !== undefined && extra.address !== null) updateData.address = extra.address;
+  if (extra.google_rating !== undefined) updateData.google_rating = extra.google_rating;
+  if (extra.google_review_count !== undefined) updateData.google_review_count = extra.google_review_count;
+  if (extra.google_place_id !== undefined) updateData.google_place_id = extra.google_place_id;
 
   if (outreach) {
     updateData.outreach = outreach;
@@ -262,6 +332,7 @@ export async function updateImportJob(
   jobId: string,
   updates: {
     imported_rows?: number;
+    skipped_rows?: number;
     failed_rows?: number;
     status?: string;
   }
