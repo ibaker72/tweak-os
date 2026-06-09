@@ -18,7 +18,9 @@ export function DashboardHeader({
         )}
       </div>
       {children && (
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">{children}</div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 [&_a]:w-full sm:[&_a]:w-auto">
+          {children}
+        </div>
       )}
     </div>
   );

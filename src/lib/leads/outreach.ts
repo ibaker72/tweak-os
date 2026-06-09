@@ -1,5 +1,14 @@
 import type { Lead, OutreachData, EnrichmentResult } from "./types";
 import { generateCompletion } from "@/lib/ai/anthropic";
+import { guessIndustryFromName } from "./industry-guess";
+
+const NJ_SOURCE_LABEL = "NJ Business Records";
+
+function isLaunchKitCandidate(lead: Lead): boolean {
+  if (lead.source === NJ_SOURCE_LABEL && !lead.website) return true;
+  if (lead.online_presence === "none_found") return true;
+  return false;
+}
 
 interface OutreachContext {
   business_name: string;
@@ -60,6 +69,10 @@ export async function generateOutreach(
   lead: Lead,
   enrichment?: EnrichmentResult
 ): Promise<OutreachData> {
+  if (isLaunchKitCandidate(lead)) {
+    return generateLaunchKitOutreach(lead);
+  }
+
   const ctx = buildContext(lead, enrichment);
   const pricingTier = determinePricingTier(ctx);
 
@@ -132,6 +145,84 @@ Respond with ONLY valid JSON, no markdown.`;
       linkedin_dm: "",
       follow_up_email: "",
       pricing_tier: pricingTier,
+    };
+  }
+}
+
+const LAUNCH_KIT_TIER = "New Business Launch Kit";
+
+async function generateLaunchKitOutreach(lead: Lead): Promise<OutreachData> {
+  const industry = lead.niche || guessIndustryFromName(lead.business_name) || "local services";
+  const location = [lead.city, lead.state].filter(Boolean).join(", ") || "New Jersey";
+  const filingDate = lead.source_filing_date ? `Filed ${lead.source_filing_date}` : "Recently filed";
+
+  const systemPrompt = `You are an outreach specialist for Tweak & Build, a product engineering studio that helps newly formed businesses get online fast. For this lead, the company is brand new — there is no public website or Google Business Profile yet. We pitch the New Business Launch Kit:
+
+- Custom website
+- Google Business Profile setup and optimization
+- Lead capture form
+- Click-to-call
+- Basic local SEO
+- Booking/contact flow
+- Optional CRM and follow-up automation
+
+Required positioning (use as the foundation for the cold_email):
+"I came across your new business while researching local companies in New Jersey. I noticed there may not be a public website or Google presence set up yet. Tweak&Build helps newly formed businesses launch their website, Google Business Profile, lead forms, and follow-up system so customers can find and contact them."
+
+Important:
+- Tone is warm, not pushy. The business owner is starting something new.
+- Be specific to the business name and industry. Do NOT mention tech stacks, page load times, or website audits — they don't have a site to audit.
+- SMS must be under 160 characters.
+- Call opener is one or two sentences a human would say on a cold call.`;
+
+  const userPrompt = `Generate launch-kit outreach for this lead:
+
+Business: ${lead.business_name}
+Source: ${lead.source ?? "NJ Business Records"} (${filingDate})
+Industry guess: ${industry}
+Location: ${location}
+Registered agent: ${lead.registered_agent ?? "unknown"}
+Address: ${lead.address ?? "unknown"}
+
+Respond with ONLY valid JSON, no markdown:
+{
+  "pain_points": ["3 reasons a newly formed business in this industry loses customers without an online presence"],
+  "offer_angle": "Why the New Business Launch Kit fits this specific business",
+  "cold_email": "Cold email under 6 sentences using the required positioning",
+  "sms": "Friendly SMS under 160 characters",
+  "call_opener": "Cold-call opener, 1-2 sentences",
+  "linkedin_dm": "LinkedIn DM, 2-3 sentences",
+  "follow_up_email": "Follow-up email 5 days later, shorter and a different angle"
+}`;
+
+  const content = await generateCompletion({
+    system: systemPrompt,
+    user: userPrompt,
+    maxTokens: 1500,
+  });
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      pain_points: parsed.pain_points ?? [],
+      offer_angle: parsed.offer_angle ?? "",
+      cold_email: parsed.cold_email ?? "",
+      linkedin_dm: parsed.linkedin_dm ?? "",
+      follow_up_email: parsed.follow_up_email ?? "",
+      sms: parsed.sms ?? "",
+      call_opener: parsed.call_opener ?? "",
+      pricing_tier: LAUNCH_KIT_TIER,
+    };
+  } catch {
+    return {
+      pain_points: [],
+      offer_angle: LAUNCH_KIT_TIER,
+      cold_email: content,
+      linkedin_dm: "",
+      follow_up_email: "",
+      sms: "",
+      call_opener: "",
+      pricing_tier: LAUNCH_KIT_TIER,
     };
   }
 }

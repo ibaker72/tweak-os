@@ -66,11 +66,15 @@ export function DiscoveryResultsTable({
     );
   }
 
+  const filteredResults = results
+    .filter((r) => !showPromisingOnly || ((r as unknown as Record<string, unknown>).estimated_score as number ?? 0) > 40)
+    .sort((a, b) => ((b as unknown as Record<string, unknown>).estimated_score as number ?? 0) - ((a as unknown as Record<string, unknown>).estimated_score as number ?? 0));
+
   return (
     <div className="space-y-4">
       {/* Action bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-zinc-400">
             {results.length} found &middot;{" "}
             {selected.size} selected &middot;{" "}
@@ -92,6 +96,7 @@ export function DiscoveryResultsTable({
           onClick={handleImport}
           disabled={selected.size === 0 || importing}
           size="sm"
+          className="w-full sm:w-auto"
         >
           {importing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -104,9 +109,70 @@ export function DiscoveryResultsTable({
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-zinc-800">
-        <table className="w-full">
+      {/* Mobile cards — easier to scan on a phone */}
+      <div className="space-y-2 md:hidden">
+        {filteredResults.map((result) => {
+          const isImported = result.imported || importedIds.has(result.id);
+          const estScore = (result as unknown as Record<string, unknown>).estimated_score as number | null;
+          return (
+            <div
+              key={result.id}
+              className={`rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 ${
+                isImported ? "opacity-60" : ""
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {isImported ? (
+                  <CheckCircle className="mt-1 h-5 w-5 shrink-0 text-lime-400" />
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={selected.has(result.id)}
+                    onChange={() => toggleOne(result.id)}
+                    className="mt-1 h-5 w-5 shrink-0 rounded border-zinc-600 bg-zinc-800 accent-lime-400"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium text-zinc-50">
+                    {result.business_name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-zinc-500">
+                    {[result.city, result.state].filter(Boolean).join(", ") || result.source || "—"}
+                  </p>
+                  {result.website && (
+                    <a
+                      href={result.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block truncate text-xs text-blue-400"
+                    >
+                      {result.website.replace(/https?:\/\//, "")}
+                    </a>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {estScore != null && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Score {estScore}
+                      </Badge>
+                    )}
+                    {isImported && <Badge variant="success">Imported</Badge>}
+                    {result.google_rating && (
+                      <span className="text-xs text-zinc-400">
+                        ★ {result.google_rating}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-xl border border-zinc-800 md:block">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px]">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/80">
               <th className="w-10 px-4 py-3 text-center">
@@ -144,10 +210,7 @@ export function DiscoveryResultsTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/50">
-            {results
-              .filter((r) => !showPromisingOnly || ((r as unknown as Record<string, unknown>).estimated_score as number ?? 0) > 40)
-              .sort((a, b) => ((b as unknown as Record<string, unknown>).estimated_score as number ?? 0) - ((a as unknown as Record<string, unknown>).estimated_score as number ?? 0))
-              .map((result) => {
+            {filteredResults.map((result) => {
               const isImported = result.imported || importedIds.has(result.id);
               const estScore = (result as unknown as Record<string, unknown>).estimated_score as number | null;
               const platform = (result as unknown as Record<string, unknown>).detected_platform as string | null;
@@ -247,6 +310,7 @@ export function DiscoveryResultsTable({
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

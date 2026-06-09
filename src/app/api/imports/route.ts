@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
 
     await updateImportJob(supabase, jobId, {
       imported_rows: importedRows,
-      failed_rows: failedRows + skippedDuplicates,
+      skipped_rows: skippedDuplicates,
+      failed_rows: failedRows,
       status: "completed",
     });
 

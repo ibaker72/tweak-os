@@ -42,6 +42,10 @@ export const csvLeadRowSchema = z.object({
   registered_agent: optionalTrimmed,
   source_filing_date: optionalTrimmed,
   import_notes: optionalTrimmed,
+
+  // Address fields used by NJ registered-agent address mapping
+  address: optionalTrimmed,
+  zip: optionalTrimmed,
 });
 
 export type ValidatedCsvRow = z.infer<typeof csvLeadRowSchema>;

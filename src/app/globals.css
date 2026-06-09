@@ -69,3 +69,8 @@ html, body {
     min-width: auto;
   }
 }
+
+/* Safe-area bottom padding for sticky action bars on iOS notched devices */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}

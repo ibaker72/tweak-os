@@ -218,6 +218,45 @@ export function LeadDetailCard({
           <InfoRow label="Industry" value={lead.niche || lead.category || "—"} />
           <InfoRow label="Source" value={lead.source || "—"} />
 
+          {/* NJ Registry data — appears for any lead imported from a state registry */}
+          {(lead.source === "NJ Business Records" ||
+            lead.source_filing_date ||
+            lead.entity_type ||
+            lead.entity_status ||
+            lead.registered_agent) && (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-lime-400">
+                NJ Registry
+              </p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                {lead.source_filing_date && (
+                  <InfoRow label="Filing Date" value={lead.source_filing_date} />
+                )}
+                {lead.entity_type && (
+                  <InfoRow label="Entity Type" value={lead.entity_type} />
+                )}
+                {lead.entity_status && (
+                  <InfoRow label="Status" value={lead.entity_status} />
+                )}
+                {lead.external_id && (
+                  <InfoRow label="Business ID" value={lead.external_id} />
+                )}
+              </div>
+              {lead.registered_agent && (
+                <InfoRow label="Registered Agent" value={lead.registered_agent} />
+              )}
+              {(lead.address || lead.city || lead.zip) && (
+                <InfoRow
+                  label="Agent Address"
+                  value={[lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(", ") || "—"}
+                />
+              )}
+              {lead.import_notes && (
+                <InfoRow label="Import Notes" value={lead.import_notes} />
+              )}
+            </div>
+          )}
+
           {lead.website && (
             <div className="flex items-center gap-2">
               <Globe className="h-4 w-4 text-zinc-500" />
@@ -374,18 +413,43 @@ export function LeadDetailCard({
             )}
           </div>
 
-          {!lead.email && !lead.email_1 && !lead.phone && !lead.phone_1 && lead.enrichment_status !== "complete" && (
+          {/* Surface real failure reason instead of a generic "failed" badge */}
+          {lead.enrichment_status === "failed" && lead.enrichment_error && (
+            <div className="rounded-lg border border-red-900/60 bg-red-950/30 p-3">
+              <p className="text-xs font-semibold uppercase text-red-400">
+                Enrichment failed
+              </p>
+              <p className="mt-1 text-sm text-red-300">{lead.enrichment_error}</p>
+            </div>
+          )}
+
+          {/* Completed-but-empty state — explicitly NOT a failure */}
+          {lead.enrichment_status === "complete" &&
+            lead.contact_status === "not_found" && (
+              <div className="rounded-lg border border-amber-900/60 bg-amber-950/20 p-3">
+                <p className="text-sm text-amber-300">
+                  {lead.enrichment_summary ||
+                    "Enrichment completed, but no public contact profile was found."}
+                </p>
+                <p className="mt-1 text-xs text-amber-400/80">
+                  Strong candidate for the New Business Launch Kit pitch.
+                </p>
+              </div>
+            )}
+
+          {!lead.email && !lead.email_1 && !lead.phone && !lead.phone_1 && lead.enrichment_status === "pending" && (
             <p className="text-sm text-zinc-500">
-              No contact info yet. Run enrichment to find contacts.
+              No contact info yet. This may still be a good startup lead — run enrichment to check.
             </p>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row">
             <Button
               variant="outline"
               size="sm"
               onClick={handleEnrich}
-              disabled={enriching || !lead.website}
+              disabled={enriching}
+              className="w-full sm:w-auto"
             >
               <RefreshCw className={`h-4 w-4 ${enriching ? "animate-spin" : ""}`} />
               {enriching ? "Enriching..." : "Run Enrichment"}
@@ -394,6 +458,7 @@ export function LeadDetailCard({
               variant="outline"
               size="sm"
               onClick={handleMarkContacted}
+              className="w-full sm:w-auto"
             >
               <MessageSquare className="h-4 w-4" />
               Mark Contacted
@@ -501,6 +566,7 @@ export function LeadDetailCard({
                 size="sm"
                 onClick={handleGenerateOutreach}
                 disabled={generatingOutreach}
+                className="w-full sm:w-auto"
               >
                 <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
                 {generatingOutreach ? "Generating..." : "Generate AI Outreach"}
@@ -542,6 +608,26 @@ export function LeadDetailCard({
                   content={outreach.cold_email}
                   onCopy={() => copyToClipboard(outreach.cold_email || "", "cold_email")}
                   copied={copiedField === "cold_email"}
+                />
+              )}
+
+              {/* SMS — appears for NJ launch-kit outreach */}
+              {outreach.sms && (
+                <CopyableSection
+                  title="SMS"
+                  content={outreach.sms}
+                  onCopy={() => copyToClipboard(outreach.sms || "", "sms")}
+                  copied={copiedField === "sms"}
+                />
+              )}
+
+              {/* Cold-call opener — appears for NJ launch-kit outreach */}
+              {outreach.call_opener && (
+                <CopyableSection
+                  title="Call Opener"
+                  content={outreach.call_opener}
+                  onCopy={() => copyToClipboard(outreach.call_opener || "", "call_opener")}
+                  copied={copiedField === "call_opener"}
                 />
               )}
 
@@ -606,14 +692,14 @@ export function LeadDetailCard({
           <CardTitle className="text-lg">Status & Notes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <label className="text-sm font-medium text-zinc-400">
               Lifecycle Status
             </label>
             <Select
               value={status}
               onChange={(e) => setStatus(e.target.value as LifecycleStatus)}
-              className="w-48"
+              className="w-full sm:w-48"
             >
               {LIFECYCLE_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -640,12 +726,47 @@ export function LeadDetailCard({
             />
           </div>
 
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </CardContent>
       </Card>
+
+      {/* Sticky mobile primary actions — three biggest jobs always one tap away */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800 bg-zinc-950/95 px-3 py-3 backdrop-blur pb-safe md:hidden">
+        <div className="flex gap-2">
+          <Button
+            onClick={handleEnrich}
+            disabled={enriching}
+            variant="outline"
+            size="sm"
+            className="flex-1"
+          >
+            <RefreshCw className={`h-4 w-4 ${enriching ? "animate-spin" : ""}`} />
+            Enrich
+          </Button>
+          <Button
+            onClick={handleGenerateOutreach}
+            disabled={generatingOutreach}
+            variant="outline"
+            size="sm"
+            className="flex-1"
+          >
+            <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
+            Outreach
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            size="sm"
+            className="flex-1"
+          >
+            <Save className="h-4 w-4" />
+            Save
+          </Button>
+        </div>
+      </div>
 
       {/* Activity Log */}
       {activityLog.length > 0 && (

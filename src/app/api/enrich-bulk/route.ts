@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { enrichWebsite } from "@/lib/leads/enrichment";
-import { scoreLead } from "@/lib/leads/scoring";
-import { generateInsights } from "@/lib/leads/insights";
-import { generateOutreach } from "@/lib/leads/outreach";
 import { getLeadById } from "@/lib/leads/queries";
-import {
-  updateLeadEnrichment,
-  markLeadEnrichmentFailed,
-  logActivity,
-} from "@/lib/leads/mutations";
+import { enrichOneLead } from "@/lib/leads/enrich-flow";
+import { logActivity } from "@/lib/leads/mutations";
 
 const MAX_CONCURRENT = 2;
 const DELAY_MS = 1000;
@@ -43,56 +36,21 @@ export async function POST(request: NextRequest) {
     let completed = 0;
     let failed = 0;
 
-    // Process in batches of MAX_CONCURRENT
     for (let i = 0; i < lead_ids.length; i += MAX_CONCURRENT) {
       const batch = lead_ids.slice(i, i + MAX_CONCURRENT);
 
       const results = await Promise.allSettled(
         batch.map(async (leadId: string) => {
           const lead = await getLeadById(supabase, leadId);
-          if (!lead || !lead.website) {
-            await markLeadEnrichmentFailed(supabase, leadId, "No website");
-            throw new Error("No website");
+          if (!lead) throw new Error("Lead not found");
+          const outcome = await enrichOneLead(supabase, lead);
+          if (outcome.status === "failed") {
+            throw new Error(outcome.error ?? "Enrichment failed");
           }
-
-          const enrichmentResult = await enrichWebsite(lead.website);
-          const scoreResult = scoreLead(enrichmentResult, {
-            website: lead.website,
-            niche: lead.niche,
-            city: lead.city,
-            state: lead.state,
-            google_rating: lead.google_rating,
-            google_review_count: lead.google_review_count,
-          });
-
-          // Generate outreach if score >= 40 and Anthropic key is available
-          let outreachData = null;
-          if (scoreResult.score >= 40 && process.env.ANTHROPIC_API_KEY) {
-            try {
-              outreachData = await generateOutreach(lead, enrichmentResult);
-            } catch {
-              // Fall back to rule-based
-            }
-          }
-
-          if (!outreachData) {
-            const insights = generateInsights(enrichmentResult, {
-              business_name: lead.business_name,
-              niche: lead.niche,
-              website: lead.website,
-            });
-            outreachData = {
-              pain_points: [insights.pain_point_1, insights.pain_point_2],
-              offer_angle: insights.offer_angle,
-              cold_email: insights.suggested_first_line,
-              linkedin_dm: "",
-              follow_up_email: "",
-            };
-          }
-
-          await updateLeadEnrichment(supabase, leadId, enrichmentResult, scoreResult, outreachData);
           await logActivity(supabase, leadId, "enriched", {
-            score: scoreResult.score,
+            score: outcome.score,
+            contact_status: outcome.contact_status,
+            online_presence: outcome.online_presence,
           });
         })
       );
@@ -105,7 +63,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Delay between batches
       if (i + MAX_CONCURRENT < lead_ids.length) {
         await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
       }
@@ -120,7 +77,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("Bulk enrich error:", err);
     return NextResponse.json(
-      { error: "Bulk enrichment failed" },
+      { error: err instanceof Error ? err.message : "Bulk enrichment failed" },
       { status: 500 }
     );
   }

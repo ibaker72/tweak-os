@@ -1,4 +1,7 @@
 import type { EnrichmentResult, ScoreResult, ScoreBreakdown } from "./types";
+import { containsHoldingCoKeywords, guessIndustryFromName } from "./industry-guess";
+
+const NJ_SOURCE_LABEL = "NJ Business Records";
 
 // NJ/NY metro area states
 const LOCAL_STATES = ["NJ", "NY", "CT", "PA"];
@@ -29,6 +32,77 @@ const REBUILD_PLATFORMS = ["Wix", "Squarespace", "WordPress", "GoDaddy", "Webflo
 // Modern stacks that suggest existing technical capability
 const MODERN_STACKS = ["Next.js", "React", "Vue.js", "Angular"];
 
+export interface NjStartupContext {
+  business_name: string;
+  source: string | null;
+  website: string | null;
+  city: string | null;
+  state: string | null;
+  address: string | null;
+  source_filing_date: string | null;
+  created_at?: string | null;
+}
+
+/**
+ * NJ startup leads often have only a business name and state — they may
+ * be brand-new LLCs with no public footprint yet. They still represent
+ * real opportunities for a New Business Launch Kit pitch, so they need
+ * their own score path instead of returning 0 for "no website".
+ */
+export function scoreNjStartupLead(lead: NjStartupContext): ScoreResult {
+  let score = 0;
+  const reasons: string[] = [];
+  const breakdown: ScoreBreakdown = {};
+
+  if (lead.source === NJ_SOURCE_LABEL) {
+    score += 25;
+    breakdown["NJ Business Records source"] = 25;
+    reasons.push("+25: Sourced from NJ Business Records — fresh state filing");
+  }
+
+  const hasFilingDate = Boolean(lead.source_filing_date);
+  const recentlyCreated = (() => {
+    if (!lead.created_at) return false;
+    const created = new Date(lead.created_at).getTime();
+    if (Number.isNaN(created)) return false;
+    const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
+    return Date.now() - created < sixtyDaysMs;
+  })();
+  if (hasFilingDate || recentlyCreated) {
+    score += 20;
+    breakdown["Newly filed business"] = 20;
+    reasons.push("+20: Newly filed business — ideal Launch Kit prospect");
+  }
+
+  if (!lead.website) {
+    score += 20;
+    breakdown["No website yet"] = 20;
+    reasons.push("+20: No website found — strong fit for Launch Kit");
+  }
+
+  const industry = guessIndustryFromName(lead.business_name);
+  if (industry) {
+    score += 15;
+    breakdown[`Local service vertical (${industry})`] = 15;
+    reasons.push(`+15: Name suggests local service business (${industry})`);
+  }
+
+  if (lead.city || lead.address) {
+    score += 10;
+    breakdown["Location info present"] = 10;
+    reasons.push("+10: City/address present — local targeting available");
+  }
+
+  if (containsHoldingCoKeywords(lead.business_name)) {
+    score -= 25;
+    breakdown["Holding-co keywords"] = -25;
+    reasons.push("-25: Name suggests holding/investment vehicle, not a service business");
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  return { score, reasons, breakdown };
+}
+
 /**
  * Tweak & Build specific scoring engine.
  * Rates leads 0-100 based on how likely they are to become a client.
@@ -36,14 +110,35 @@ const MODERN_STACKS = ["Next.js", "React", "Vue.js", "Angular"];
 export function scoreLead(
   enrichment: EnrichmentResult,
   lead: {
+    business_name?: string;
+    source?: string | null;
     website: string | null;
     niche: string | null;
     city: string | null;
     state: string | null;
+    address?: string | null;
+    source_filing_date?: string | null;
+    created_at?: string | null;
     google_rating?: number | null;
     google_review_count?: number | null;
   }
 ): ScoreResult {
+  // NJ Business Records leads route through the startup scorer. The website-
+  // driven scoring engine is built around having enrichment data, which these
+  // leads do not have until a Places lookup hydrates them.
+  if (lead.source === NJ_SOURCE_LABEL && !lead.website) {
+    return scoreNjStartupLead({
+      business_name: lead.business_name ?? "",
+      source: lead.source ?? null,
+      website: lead.website,
+      city: lead.city,
+      state: lead.state,
+      address: lead.address ?? null,
+      source_filing_date: lead.source_filing_date ?? null,
+      created_at: lead.created_at ?? null,
+    });
+  }
+
   let score = 0;
   const reasons: string[] = [];
   const breakdown: ScoreBreakdown = {};
