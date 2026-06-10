@@ -21,6 +21,9 @@ import {
   Trash2,
   Save,
   Loader2,
+  Plug,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 interface Agent {
@@ -58,6 +61,12 @@ export default function SettingsPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [smartLists, setSmartLists] = useState<SmartList[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openClaw, setOpenClaw] = useState<{
+    connected: boolean;
+    capabilities: string[];
+    base_path: string;
+  } | null>(null);
+  const [openClawError, setOpenClawError] = useState<string | null>(null);
 
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentEmail, setNewAgentEmail] = useState("");
@@ -77,6 +86,23 @@ export default function SettingsPage() {
       setSmartLists(smartListData.smart_lists ?? []);
       setLoading(false);
     });
+
+    fetch("/api/v1/openclaw/status")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        setOpenClaw({
+          connected: Boolean(data.connected),
+          capabilities: data.capabilities ?? [],
+          base_path: data.base_path ?? "/api/v1/openclaw",
+        });
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Status check failed";
+        setOpenClawError(msg);
+      });
   }, []);
 
   async function handleSignOut() {
@@ -313,6 +339,60 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* OpenClaw Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Plug className="h-5 w-5 text-lime-400" />
+            OpenClaw Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {openClawError ? (
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              <XCircle className="h-4 w-4" />
+              Unable to reach status endpoint: {openClawError}
+            </div>
+          ) : !openClaw ? (
+            <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking OpenClaw status...
+            </div>
+          ) : openClaw.connected ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 rounded-lg bg-lime-400/10 px-3 py-2 text-sm text-lime-300">
+                <CheckCircle2 className="h-4 w-4" />
+                OpenClaw Connected — bearer token configured on the server.
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-zinc-500">Base path</p>
+                <p className="font-mono text-sm text-zinc-200">{openClaw.base_path}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-zinc-500">Capabilities</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {openClaw.capabilities.map((cap) => (
+                    <Badge key={cap} variant="secondary" className="text-[10px]">
+                      {cap}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+                <XCircle className="h-4 w-4" />
+                OpenClaw Disconnected — set <span className="font-mono">OPENCLAW_API_TOKEN</span> in Vercel to enable.
+              </div>
+              <p className="text-xs text-zinc-500">
+                Once set, OpenClaw can call <span className="font-mono">/api/v1/openclaw/*</span> using the token as a Bearer header.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* API Keys */}
       <Card>
         <CardHeader>
@@ -331,6 +411,7 @@ export default function SettingsPage() {
               { name: "GOOGLE_CUSTOM_SEARCH_CX", description: "Google Custom Search engine ID" },
               { name: "OPENCLAW_MASTER_KEY", description: "OpenClaw automation hub — required by /api/v1/automate" },
               { name: "OPENCLAW_API_BASE_URL", description: "Optional override for OpenClaw endpoint (default: https://api.clawhub.ai)" },
+              { name: "OPENCLAW_API_TOKEN", description: "Bearer token OpenClaw uses to call /api/v1/openclaw/* — required for inbound API access" },
               { name: "NEXT_PUBLIC_SUPABASE_URL", description: "Supabase project URL" },
               { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", description: "Supabase public anon key" },
               { name: "SUPABASE_SERVICE_ROLE_KEY", description: "Supabase service-role key (server-side only, used by automation proxy)" },
