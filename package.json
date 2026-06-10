@@ -47,5 +47,8 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.6"
+  },
+  "overrides": {
+    "encoding-sniffer": "^1.0.2"
   }
 }
