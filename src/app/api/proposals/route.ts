@@ -4,21 +4,49 @@ import { createClient } from "@/lib/supabase/server";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/proposals/sections";
 import type { ProposalSections } from "@/lib/proposals/types";
 
-// GET /api/proposals — list recent proposals
-export async function GET() {
+const proposalSelect =
+  "id, lead_id, audit_id, client_name, business_type, website_url, recipient_name, recipient_email, services_json, proposal_html, proposal_sections, proposal_text, pdf_url, total_one_time, total_monthly, status, sent_at, last_edited_at, created_at";
+
+// GET /api/proposals — list recent proposals, or load one proposal with ?id=<uuid>
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const id = request.nextUrl.searchParams.get("id");
+
+    if (id) {
+      const parsedId = z.string().uuid().safeParse(id);
+      if (!parsedId.success) {
+        return NextResponse.json(
+          { error: "Invalid proposal ID" },
+          { status: 400 }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("proposals")
+        .select(proposalSelect)
+        .eq("id", parsedId.data)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        return NextResponse.json(
+          { error: "Proposal not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({ proposal: data });
+    }
+
     const { data, error } = await supabase
       .from("proposals")
-      .select(
-        "id, lead_id, audit_id, client_name, business_type, website_url, recipient_name, recipient_email, services_json, proposal_html, proposal_sections, proposal_text, pdf_url, total_one_time, total_monthly, status, sent_at, last_edited_at, created_at"
-      )
+      .select(proposalSelect)
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw error;
     return NextResponse.json({ proposals: data ?? [] });
   } catch (err) {
-    console.error("Proposals list error:", err);
+    console.error("Proposals load error:", err);
     return NextResponse.json(
       { error: "Failed to load proposals" },
       { status: 500 }

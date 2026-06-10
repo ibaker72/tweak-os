@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
   Pencil,
   Sun,
   Moon,
+  ExternalLink,
+  Archive,
 } from "lucide-react";
 import {
   BUSINESS_TYPES,
@@ -69,7 +71,6 @@ const STATUS_VARIANTS: Record<ProposalStatus, { label: string; classes: string }
   lost: { label: "Lost", classes: "bg-red-500/15 text-red-300" },
 };
 
-const STATUS_OPTIONS: ProposalStatus[] = ["draft", "saved", "sent", "won", "lost"];
 
 const DEFAULT_EMAIL_INTRO = (clientName: string, recipientName: string) => `Hey ${recipientName || "there"},
 
@@ -84,10 +85,12 @@ Iyad
 Tweak & Build`;
 
 export function ProposalsPageInner() {
+  const router = useRouter();
   const params = useSearchParams();
   const presetUrl = params.get("url") ?? "";
   const presetLeadId = params.get("lead_id") ?? undefined;
   const presetAuditId = params.get("audit_id") ?? undefined;
+  const proposalIdParam = params.get("id");
 
   const [clientName, setClientName] = useState("");
   const [businessType, setBusinessType] = useState<string>(
@@ -119,6 +122,9 @@ export function ProposalsPageInner() {
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(true);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [selectedProposalLoading, setSelectedProposalLoading] = useState(false);
+  const [selectedProposalError, setSelectedProposalError] = useState<string | null>(null);
 
   const showToast = (msg: string, tone: ToastTone = "info") =>
     setToast({ msg, tone, open: true });
@@ -143,6 +149,17 @@ export function ProposalsPageInner() {
     loadProposals();
   }, []);
 
+  useEffect(() => {
+    if (!proposalIdParam) {
+      setSelectedProposal(null);
+      setSelectedProposalError(null);
+      return;
+    }
+
+    loadProposalById(proposalIdParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposalIdParam]);
+
   async function loadProposals() {
     setProposalsLoading(true);
     try {
@@ -157,6 +174,79 @@ export function ProposalsPageInner() {
       setProposalsLoading(false);
     }
   }
+  async function loadProposalById(id: string) {
+    setSelectedProposalLoading(true);
+    setSelectedProposalError(null);
+    try {
+      const res = await fetch(`/api/proposals?id=${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        setSelectedProposal(null);
+        setSelectedProposalError("That proposal could not be found. Showing recent proposals instead.");
+        return;
+      }
+      const data = await res.json();
+      setSelectedProposal(data.proposal ?? null);
+    } catch {
+      setSelectedProposal(null);
+      setSelectedProposalError("Unable to load that proposal. Showing recent proposals instead.");
+    } finally {
+      setSelectedProposalLoading(false);
+    }
+  }
+
+  function getProposalSections(proposal: Proposal): ProposalSections {
+    const storedSections = proposal.proposal_sections ?? {};
+    const hasStoredSections = Object.values(storedSections).some(
+      (value) => typeof value === "string" && value.trim().length > 0
+    );
+
+    return {
+      ...emptySections(),
+      ...(hasStoredSections
+        ? storedSections
+        : proposal.proposal_html
+          ? parseSectionsFromMarkdown(proposal.proposal_html)
+          : {}),
+    };
+  }
+
+  function copyPreviewLink(id: string) {
+    const link = `${window.location.origin}/proposals?id=${id}`;
+    navigator.clipboard.writeText(link);
+    showToast("Proposal preview link copied", "success");
+  }
+
+  function showProposal(proposal: Proposal, updateUrl = true) {
+    setSelectedProposal(proposal);
+    setSelectedProposalError(null);
+    if (updateUrl) router.replace(`/proposals?id=${proposal.id}`, { scroll: false });
+    setTimeout(() => {
+      document
+        .getElementById("proposal-detail-card")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
+  function editProposal(proposal: Proposal) {
+    showProposal(proposal);
+    setSavedId(proposal.id);
+    setClientName(proposal.client_name ?? "");
+    setBusinessType(proposal.business_type ?? "Home Services");
+    setWebsiteUrl(proposal.website_url ?? "");
+    setRecipientName(proposal.recipient_name ?? "");
+    setRecipientEmail(proposal.recipient_email ?? "");
+    setSections(getProposalSections(proposal));
+    const serviceNames = new Set((proposal.services_json ?? []).map((svc) => svc.name));
+    setSelectedIds(
+      new Set(
+        SERVICE_CATALOG.filter((item) => serviceNames.has(item.name)).map((item) => item.id)
+      )
+    );
+    setTimeout(() => {
+      document.getElementById("proposal-composer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
 
   const selectedServices = useMemo<ProposalService[]>(() => {
     const out: ProposalService[] = [];
@@ -425,7 +515,13 @@ export function ProposalsPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status }),
       });
-      if (res.ok) loadProposals();
+      if (res.ok) {
+        await loadProposals();
+        setSelectedProposal((prev) =>
+          prev?.id === id ? { ...prev, status } : prev
+        );
+        showToast(`Proposal marked ${status}`, "success");
+      }
     } catch {
       // Silent — user can retry.
     }
@@ -439,6 +535,111 @@ export function ProposalsPageInner() {
           description="Build, edit, and send branded proposals"
         />
       </div>
+
+      {selectedProposalLoading && (
+        <Card id="proposal-detail-card">
+          <CardContent className="flex items-center gap-2 py-6 text-sm text-zinc-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading selected proposal...
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedProposalError && !selectedProposalLoading && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="flex items-start gap-3 py-4 text-sm text-amber-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Proposal unavailable</p>
+              <p className="text-amber-200/80">{selectedProposalError}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedProposal && !selectedProposalLoading && (
+        <Card id="proposal-detail-card" className="border-lime-400/30 bg-zinc-950/80">
+          <CardHeader>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Badge className="border-lime-400/30 bg-lime-400/10 text-lime-300">
+                    Open proposal
+                  </Badge>
+                  <StatusPill status={selectedProposal.status} />
+                </div>
+                <CardTitle className="text-xl">
+                  {selectedProposal.client_name || "Untitled Proposal"}
+                </CardTitle>
+                <p className="mt-1 text-sm text-zinc-400">
+                  {selectedProposal.business_type || "No business type"}
+                  {selectedProposal.website_url ? ` · ${selectedProposal.website_url}` : ""}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => editProposal(selectedProposal)}>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => copyPreviewLink(selectedProposal.id)}>
+                  <Copy className="h-4 w-4" />
+                  Copy link
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => router.replace("/proposals", { scroll: false })}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <ProposalPreview
+              sections={getProposalSections(selectedProposal)}
+              clientName={selectedProposal.client_name ?? ""}
+              websiteUrl={selectedProposal.website_url ?? undefined}
+            />
+            <aside className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 text-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Value</p>
+                <p className="mt-1 text-lg font-semibold text-zinc-100">
+                  {moneyFmt(Number(selectedProposal.total_one_time || 0))}
+                  {Number(selectedProposal.total_monthly || 0) > 0 && (
+                    <span className="text-sm font-normal text-zinc-400">
+                      {" "}+ {moneyFmt(Number(selectedProposal.total_monthly || 0))}/mo
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Created</p>
+                <p className="mt-1 text-zinc-300">{formatDate(selectedProposal.created_at)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Recipient</p>
+                <p className="mt-1 text-zinc-300">
+                  {selectedProposal.recipient_name || selectedProposal.recipient_email || "Not set"}
+                </p>
+                {selectedProposal.recipient_name && selectedProposal.recipient_email && (
+                  <p className="text-xs text-zinc-500">{selectedProposal.recipient_email}</p>
+                )}
+              </div>
+              <div className="space-y-2 border-t border-zinc-800 pt-4">
+                <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => handleStatusChange(selectedProposal.id, "sent")}>
+                  <Mail className="h-4 w-4" />
+                  Mark sent
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleStatusChange(selectedProposal.id, "won")}>Mark won</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleStatusChange(selectedProposal.id, "lost")}>Mark lost</Button>
+                </div>
+                <Button variant="outline" size="sm" className="w-full justify-start" disabled title="Archive is not supported by the current proposal status model.">
+                  <Archive className="h-4 w-4" />
+                  Archive unavailable
+                </Button>
+              </div>
+            </aside>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent proposals */}
       <Card>
@@ -471,6 +672,10 @@ export function ProposalsPageInner() {
                     <ProposalRow
                       key={p.id}
                       proposal={p}
+                      isSelected={selectedProposal?.id === p.id}
+                      onView={showProposal}
+                      onEdit={editProposal}
+                      onCopyLink={copyPreviewLink}
                       onStatusChange={handleStatusChange}
                     />
                   ))}
@@ -483,7 +688,7 @@ export function ProposalsPageInner() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* LEFT — form */}
-        <div className="space-y-4 lg:col-span-2">
+        <div id="proposal-composer" className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Client & Services</CardTitle>
@@ -805,19 +1010,50 @@ export function ProposalsPageInner() {
   );
 }
 
+function StatusPill({ status }: { status: ProposalStatus }) {
+  const variant = STATUS_VARIANTS[status] ?? STATUS_VARIANTS.draft;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${variant.classes}`}
+    >
+      {variant.label}
+    </span>
+  );
+}
+
 function ProposalRow({
   proposal,
+  isSelected,
+  onView,
+  onEdit,
+  onCopyLink,
   onStatusChange,
 }: {
   proposal: Proposal;
+  isSelected: boolean;
+  onView: (proposal: Proposal) => void;
+  onEdit: (proposal: Proposal) => void;
+  onCopyLink: (id: string) => void;
   onStatusChange: (id: string, status: ProposalStatus) => void;
 }) {
-  const variant = STATUS_VARIANTS[proposal.status];
+  const isMuted = proposal.status === "lost";
   return (
-    <tr className="text-sm">
-      <td className="px-3 py-2 text-zinc-100">{proposal.client_name || "—"}</td>
-      <td className="px-3 py-2 text-zinc-400">{proposal.business_type || "—"}</td>
-      <td className="px-3 py-2 text-zinc-300">
+    <tr
+      className={`group cursor-pointer text-sm transition-colors hover:bg-zinc-900/80 ${
+        isSelected ? "bg-lime-400/10 ring-1 ring-inset ring-lime-400/30" : ""
+      } ${isMuted ? "opacity-60" : ""}`}
+      onClick={() => onView(proposal)}
+    >
+      <td className="px-3 py-3 text-zinc-100">
+        <div className="font-medium group-hover:text-lime-300">
+          {proposal.client_name || "—"}
+        </div>
+        <div className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500 sm:hidden">
+          <Eye className="h-3 w-3" /> Tap to view
+        </div>
+      </td>
+      <td className="px-3 py-3 text-zinc-400">{proposal.business_type || "—"}</td>
+      <td className="px-3 py-3 text-zinc-300">
         {moneyFmt(Number(proposal.total_one_time || 0))}
         {Number(proposal.total_monthly || 0) > 0 && (
           <span className="text-xs text-zinc-500">
@@ -826,30 +1062,41 @@ function ProposalRow({
           </span>
         )}
       </td>
-      <td className="px-3 py-2">
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${variant.classes}`}
-        >
-          {variant.label}
-        </span>
+      <td className="px-3 py-3">
+        <StatusPill status={proposal.status} />
       </td>
-      <td className="px-3 py-2 text-xs text-zinc-500">
+      <td className="px-3 py-3 text-xs text-zinc-500">
         {formatDate(proposal.created_at)}
       </td>
-      <td className="px-3 py-2 text-right">
-        <div className="inline-flex items-center gap-2">
+      <td className="px-3 py-3 text-right" onClick={(event) => event.stopPropagation()}>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => onView(proposal)}>
+            <Eye className="h-4 w-4" />
+            View
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onEdit(proposal)}>
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onCopyLink(proposal.id)} title="Copy preview link">
+            <ExternalLink className="h-4 w-4" />
+            <span className="sr-only">Copy preview link</span>
+          </Button>
           <Select
-            value={proposal.status}
-            onChange={(e) =>
-              onStatusChange(proposal.id, e.target.value as ProposalStatus)
-            }
-            className="h-7 w-28 text-xs"
+            defaultValue=""
+            onChange={(e) => {
+              const nextStatus = e.target.value as ProposalStatus;
+              if (!nextStatus) return;
+              onStatusChange(proposal.id, nextStatus);
+              e.currentTarget.value = "";
+            }}
+            className="h-8 w-36 text-xs"
+            aria-label={`Proposal actions for ${proposal.client_name || "proposal"}`}
           >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
+            <option value="">More actions</option>
+            <option value="sent">Mark sent</option>
+            <option value="won">Mark won</option>
+            <option value="lost">Mark lost</option>
           </Select>
         </div>
       </td>
