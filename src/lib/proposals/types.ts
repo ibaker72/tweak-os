@@ -106,6 +106,22 @@ export const SERVICE_GROUPS: { id: ServiceGroup; label: string }[] = [
 export const SERVICE_CATALOG: ServiceCatalogItem[] = [
   // Websites
   {
+    id: "new-business-launch-kit",
+    name: "New Business Launch Kit",
+    price: 2000,
+    billing: "one-time",
+    group: "websites",
+    label: "New Business Launch Kit — $2,000 one-time",
+  },
+  {
+    id: "new-business-launch-kit-setup",
+    name: "New Business Launch Kit Setup",
+    price: 500,
+    billing: "one-time",
+    group: "websites",
+    label: "New Business Launch Kit Setup — $500 one-time",
+  },
+  {
     id: "foundation-website",
     name: "Foundation Website",
     price: 3500,
@@ -172,6 +188,14 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
     billing: "one-time",
     group: "addons",
     label: "AI Local SEO Pages — $200/page",
+  },
+  {
+    id: "monthly-website-seo-care-plan",
+    name: "Monthly Website/SEO Care Plan",
+    price: 297,
+    billing: "monthly",
+    group: "addons",
+    label: "Monthly Website/SEO Care Plan — $297/mo",
   },
   {
     id: "monthly-seo-maintenance",

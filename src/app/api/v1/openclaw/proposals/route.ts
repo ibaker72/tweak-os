@@ -4,9 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { guard } from "@/lib/openclaw/auth";
 import { logOpenClawAction } from "@/lib/openclaw/activity";
 import {
-  SERVICE_CATALOG,
-  type ProposalService,
-} from "@/lib/proposals/types";
+  buildDefaultServices,
+  calculateTotals,
+  isLaunchKitLead,
+} from "@/lib/proposals/pricing";
 
 export const runtime = "nodejs";
 
@@ -16,54 +17,6 @@ const bodySchema = z.object({
   price_mode: z.enum(["one_time", "setup_plus_monthly"]).default("one_time"),
   custom_notes: z.string().max(5000).optional(),
 });
-
-// Default service bundles for the two pricing modes. We use the
-// existing service catalog where possible so totals stay consistent
-// with what the in-app composer would produce.
-function buildDefaultServices(
-  packageName: string,
-  priceMode: "one_time" | "setup_plus_monthly"
-): ProposalService[] {
-  const foundation = SERVICE_CATALOG.find((s) => s.id === "foundation-website");
-  const growth = SERVICE_CATALOG.find((s) => s.id === "growth-website-system");
-  const seo = SERVICE_CATALOG.find((s) => s.id === "monthly-seo-maintenance");
-
-  if (priceMode === "setup_plus_monthly") {
-    const services: ProposalService[] = [];
-    if (growth) {
-      services.push({ name: packageName, price: growth.price, billing: "one-time" });
-    } else {
-      services.push({ name: packageName, price: 6500, billing: "one-time" });
-    }
-    if (seo) {
-      services.push({ name: "Monthly SEO Maintenance", price: seo.price, billing: "monthly" });
-    } else {
-      services.push({ name: "Monthly Care + SEO", price: 400, billing: "monthly" });
-    }
-    return services;
-  }
-
-  return [
-    {
-      name: packageName,
-      price: foundation?.price ?? 3500,
-      billing: "one-time",
-    },
-  ];
-}
-
-function calculateTotals(services: ProposalService[]): {
-  total_one_time: number;
-  total_monthly: number;
-} {
-  let total_one_time = 0;
-  let total_monthly = 0;
-  for (const s of services) {
-    if (s.billing === "one-time") total_one_time += s.price;
-    else if (s.billing === "monthly") total_monthly += s.price;
-  }
-  return { total_one_time, total_monthly };
-}
 
 export async function POST(request: NextRequest) {
   const check = guard(request);
@@ -89,7 +42,9 @@ export async function POST(request: NextRequest) {
 
   const { data: lead, error: leadErr } = await supabase
     .from("leads")
-    .select("id, business_name, niche, category, website")
+    .select(
+      "id, business_name, niche, category, website, source, source_filing_date, created_at"
+    )
     .eq("id", lead_id)
     .maybeSingle();
   if (leadErr) {
@@ -101,7 +56,18 @@ export async function POST(request: NextRequest) {
   }
 
   const leadRow = lead as Record<string, unknown>;
-  const services = buildDefaultServices(pkg, price_mode);
+  const leadPricingContext = {
+    source: (leadRow.source as string | null) ?? null,
+    website: (leadRow.website as string | null) ?? null,
+    source_filing_date: (leadRow.source_filing_date as string | null) ?? null,
+    created_at: (leadRow.created_at as string | null) ?? null,
+  };
+  const launchKitFit = isLaunchKitLead(leadPricingContext);
+  const services = buildDefaultServices({
+    packageName: pkg,
+    priceMode: price_mode,
+    lead: leadPricingContext,
+  });
   const { total_one_time, total_monthly } = calculateTotals(services);
 
   const now = new Date().toISOString();
@@ -146,6 +112,7 @@ export async function POST(request: NextRequest) {
     price_mode,
     total_one_time,
     total_monthly,
+    launch_kit_fit: launchKitFit,
   });
 
   const origin = request.headers.get("origin") ?? request.nextUrl.origin;
