@@ -108,18 +108,10 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
   {
     id: "new-business-launch-kit",
     name: "New Business Launch Kit",
-    price: 2000,
+    price: 2500,
     billing: "one-time",
     group: "websites",
-    label: "New Business Launch Kit — $2,000 one-time",
-  },
-  {
-    id: "new-business-launch-kit-setup",
-    name: "New Business Launch Kit Setup",
-    price: 500,
-    billing: "one-time",
-    group: "websites",
-    label: "New Business Launch Kit Setup — $500 one-time",
+    label: "New Business Launch Kit — $2,500 one-time",
   },
   {
     id: "foundation-website",

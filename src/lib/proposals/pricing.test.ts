@@ -87,7 +87,7 @@ describe("isLaunchKitPackage", () => {
 });
 
 describe("buildDefaultServices — Launch Kit lead", () => {
-  it("returns $500 setup + $297/mo for setup_plus_monthly", () => {
+  it("returns $2,500 launch kit + $297/mo care plan for setup_plus_monthly", () => {
     const services = buildDefaultServices({
       packageName: "New Business Launch Kit",
       priceMode: "setup_plus_monthly",
@@ -95,8 +95,8 @@ describe("buildDefaultServices — Launch Kit lead", () => {
     });
     expect(services).toHaveLength(2);
     expect(services[0]).toMatchObject({
-      name: "New Business Launch Kit Setup",
-      price: 500,
+      name: "New Business Launch Kit",
+      price: 2500,
       billing: "one-time",
     });
     expect(services[1]).toMatchObject({
@@ -104,9 +104,12 @@ describe("buildDefaultServices — Launch Kit lead", () => {
       price: 297,
       billing: "monthly",
     });
+    const totals = calculateTotals(services);
+    expect(totals.total_one_time).toBe(2500);
+    expect(totals.total_monthly).toBe(297);
   });
 
-  it("returns a single $2,000 one-time line for one_time", () => {
+  it("returns a single $2,500 one-time line for one_time", () => {
     const services = buildDefaultServices({
       packageName: "New Business Launch Kit",
       priceMode: "one_time",
@@ -115,9 +118,12 @@ describe("buildDefaultServices — Launch Kit lead", () => {
     expect(services).toHaveLength(1);
     expect(services[0]).toMatchObject({
       name: "New Business Launch Kit",
-      price: 2000,
+      price: 2500,
       billing: "one-time",
     });
+    const totals = calculateTotals(services);
+    expect(totals.total_one_time).toBe(2500);
+    expect(totals.total_monthly).toBe(0);
   });
 
   it("never defaults a Launch Kit lead to $6,500", () => {
@@ -138,7 +144,24 @@ describe("buildDefaultServices — Launch Kit lead", () => {
       priceMode: "one_time",
       lead: NJ_LEAD,
     });
-    expect(services[0].price).toBe(2000);
+    expect(services[0].price).toBe(2500);
+  });
+
+  it("does not produce a standalone $500 setup line in any mode", () => {
+    const setupPlusMonthly = buildDefaultServices({
+      packageName: "New Business Launch Kit",
+      priceMode: "setup_plus_monthly",
+      lead: NJ_LEAD,
+    });
+    const oneTime = buildDefaultServices({
+      packageName: "New Business Launch Kit",
+      priceMode: "one_time",
+      lead: NJ_LEAD,
+    });
+    for (const svc of [...setupPlusMonthly, ...oneTime]) {
+      expect(svc.name).not.toMatch(/setup/i);
+      expect(svc.price).not.toBe(500);
+    }
   });
 });
 
@@ -175,7 +198,7 @@ describe("buildDefaultServices — premium package overrides", () => {
 });
 
 describe("buildDefaultServices — established lead", () => {
-  it("falls back to the Growth Website System tier for setup_plus_monthly", () => {
+  it("uses Launch Kit pricing for an established lead when the package name is Launch Kit", () => {
     const services = buildDefaultServices({
       packageName: "New Business Launch Kit",
       priceMode: "setup_plus_monthly",
@@ -183,7 +206,17 @@ describe("buildDefaultServices — established lead", () => {
     });
     // Launch Kit package name still triggers Launch Kit pricing — owner
     // explicitly chose the Launch Kit offering for this lead.
-    expect(services[0].price).toBe(500);
+    expect(services).toHaveLength(2);
+    expect(services[0]).toMatchObject({
+      name: "New Business Launch Kit",
+      price: 2500,
+      billing: "one-time",
+    });
+    expect(services[1]).toMatchObject({
+      name: "Monthly Website/SEO Care Plan",
+      price: 297,
+      billing: "monthly",
+    });
   });
 
   it("uses standard Foundation pricing for an established lead with a non-Launch-Kit package", () => {

@@ -95,15 +95,20 @@ function buildLaunchKitServices(
   packageName: string,
   priceMode: PriceMode
 ): ProposalService[] {
+  const launchKit = findService("new-business-launch-kit");
+  // Keep the caller's package label when provided so the proposal
+  // header still reads "New Business Launch Kit" (or whatever they
+  // sent) rather than the catalog default.
+  const launchKitLine: ProposalService = {
+    name: packageName || launchKit?.name || "New Business Launch Kit",
+    price: launchKit?.price ?? 2500,
+    billing: "one-time",
+  };
+
   if (priceMode === "setup_plus_monthly") {
-    const setup = findService("new-business-launch-kit-setup");
     const monthly = findService("monthly-website-seo-care-plan");
     return [
-      {
-        name: setup?.name ?? "New Business Launch Kit Setup",
-        price: setup?.price ?? 500,
-        billing: "one-time",
-      },
+      launchKitLine,
       {
         name: monthly?.name ?? "Monthly Website/SEO Care Plan",
         price: monthly?.price ?? 297,
@@ -112,17 +117,7 @@ function buildLaunchKitServices(
     ];
   }
 
-  const launchKit = findService("new-business-launch-kit");
-  return [
-    {
-      // Keep the caller's package label when provided so the proposal
-      // header still reads "New Business Launch Kit" (or whatever they
-      // sent) rather than the catalog default.
-      name: packageName || launchKit?.name || "New Business Launch Kit",
-      price: launchKit?.price ?? 2000,
-      billing: "one-time",
-    },
-  ];
+  return [launchKitLine];
 }
 
 function buildStandardServices(
