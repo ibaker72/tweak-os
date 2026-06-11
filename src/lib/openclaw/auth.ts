@@ -8,6 +8,9 @@ export const OPENCLAW_CAPABILITIES = [
   "leads:enrich",
   "outreach:generate",
   "proposals:create",
+  "proposals:update",
+  "proposals:archive",
+  "proposals:delete",
 ] as const;
 
 export type OpenClawAuthOk = { ok: true; token: string };

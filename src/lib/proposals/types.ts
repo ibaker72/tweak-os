@@ -2,7 +2,15 @@
 // Proposal Types
 // ============================================
 
-export type ProposalStatus = "draft" | "saved" | "sent" | "won" | "lost";
+export type ProposalStatus =
+  | "draft"
+  | "saved"
+  | "sent"
+  | "won"
+  | "lost"
+  | "active"
+  | "obsolete"
+  | "archived";
 
 export type Billing = "one-time" | "monthly";
 
@@ -81,6 +89,7 @@ export interface Proposal {
   status: ProposalStatus;
   sent_at?: string | null;
   last_edited_at?: string | null;
+  archived_at?: string | null;
   created_at: string;
 }
 
