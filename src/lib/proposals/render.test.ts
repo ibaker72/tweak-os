@@ -73,4 +73,27 @@ describe("renderProposalEmailBody", () => {
     });
     expect(html).toContain("Hi there,");
   });
+
+  it("includes the 'Sent via Tweak & Build OS' footer with tweakandbuild.com link", () => {
+    const html = renderProposalEmailBody({
+      sections,
+      clientName: "Acme",
+      recipientName: "Joe",
+      message: "Quick plan attached.",
+    });
+    expect(html).toContain("Sent via Tweak &amp; Build OS");
+    expect(html).toContain("tweakandbuild.com");
+  });
+
+  it("uses the soft off-white outer background, not a dark app theme", () => {
+    const html = renderProposalEmailBody({
+      sections,
+      clientName: "Acme",
+      recipientName: "Joe",
+      message: "Quick plan attached.",
+    });
+    // Mobile premium look — soft off-white, not slate-200.
+    expect(html).toContain("#f7f8f5");
+    expect(html).not.toMatch(/background:#f1f5f9/);
+  });
 });

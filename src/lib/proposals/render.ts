@@ -3,13 +3,18 @@ import { SECTION_ORDER, SECTION_TITLES, type ProposalSections } from "./types";
 // ============================================
 // Light-themed proposal renderer for email body and PDF.
 // Self-contained: zero classes, all inline styles, safe for email clients.
+// Tuned for premium, client-facing readability on Gmail mobile.
 // ============================================
 
 const LIME = "#65a30d";
-const LIME_LIGHT = "#ecfccb";
-const TEXT = "#0f172a";
-const MUTED = "#475569";
-const BORDER = "#e2e8f0";
+const LIME_BRIGHT = "#84cc16";
+const LIME_SOFT = "#f7fee7";
+const BG_SOFT = "#f7f8f5";
+const CARD = "#ffffff";
+const TEXT = "#111827";
+const MUTED = "#4b5563";
+const BORDER = "#e5e7eb";
+const ROW_ALT = "#fafaf7";
 
 function escapeHtml(s: string): string {
   return s
@@ -55,8 +60,8 @@ function renderSectionBody(md: string): string {
         i++;
       }
       out.push(
-        `<ol style="margin:8px 0 16px 24px;padding:0;color:${TEXT};font-size:14px;line-height:1.6;">${items
-          .map((it) => `<li style="margin:6px 0;">${applyInline(it)}</li>`)
+        `<ol style="margin:10px 0 18px 22px;padding:0;color:${TEXT};font-size:15px;line-height:1.7;">${items
+          .map((it) => `<li style="margin:8px 0;padding-left:4px;">${applyInline(it)}</li>`)
           .join("")}</ol>`
       );
       continue;
@@ -68,8 +73,8 @@ function renderSectionBody(md: string): string {
         i++;
       }
       out.push(
-        `<ul style="margin:8px 0 16px 24px;padding:0;color:${TEXT};font-size:14px;line-height:1.6;">${items
-          .map((it) => `<li style="margin:6px 0;">${applyInline(it)}</li>`)
+        `<ul style="margin:10px 0 18px 22px;padding:0;color:${TEXT};font-size:15px;line-height:1.7;">${items
+          .map((it) => `<li style="margin:8px 0;padding-left:4px;">${applyInline(it)}</li>`)
           .join("")}</ul>`
       );
       continue;
@@ -90,7 +95,7 @@ function renderSectionBody(md: string): string {
       i++;
     }
     out.push(
-      `<p style="margin:0 0 12px 0;color:${TEXT};font-size:14px;line-height:1.65;">${applyInline(
+      `<p style="margin:0 0 14px 0;color:${TEXT};font-size:15px;line-height:1.7;">${applyInline(
         para.join(" ")
       )}</p>`
     );
@@ -115,7 +120,7 @@ function renderTable(rows: string[]): string {
   const headHtml = `<thead><tr>${header
     .map(
       (c) =>
-        `<th style="text-align:left;padding:10px 12px;background:${LIME_LIGHT};color:${TEXT};font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid ${BORDER};">${applyInline(
+        `<th style="text-align:left;padding:12px 14px;background:${LIME_SOFT};color:${TEXT};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid ${BORDER};">${applyInline(
           c
         )}</th>`
     )
@@ -123,17 +128,17 @@ function renderTable(rows: string[]): string {
   const bodyHtml = `<tbody>${body
     .map(
       (cells, idx) =>
-        `<tr style="background:${idx % 2 === 0 ? "#ffffff" : "#fafaf9"};">${cells
+        `<tr style="background:${idx % 2 === 0 ? CARD : ROW_ALT};">${cells
           .map(
             (c) =>
-              `<td style="padding:10px 12px;font-size:14px;color:${TEXT};border-bottom:1px solid ${BORDER};">${applyInline(
+              `<td style="padding:12px 14px;font-size:15px;line-height:1.5;color:${TEXT};border-bottom:1px solid ${BORDER};">${applyInline(
                 c
               )}</td>`
           )
           .join("")}</tr>`
     )
     .join("")}</tbody>`;
-  return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin:12px 0 20px 0;border:1px solid ${BORDER};border-radius:6px;overflow:hidden;">${headHtml}${bodyHtml}</table>`;
+  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;border-collapse:collapse;margin:14px 0 22px 0;border:1px solid ${BORDER};border-radius:8px;overflow:hidden;">${headHtml}${bodyHtml}</table>`;
 }
 
 // ============================================
@@ -142,19 +147,19 @@ function renderTable(rows: string[]): string {
 // ============================================
 function renderBrandHeader(): string {
   return `
-    <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
+    <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;border-collapse:collapse;">
       <tr>
         <td style="vertical-align:middle;">
-          <table cellpadding="0" cellspacing="0" border="0">
+          <table cellpadding="0" cellspacing="0" border="0" role="presentation">
             <tr>
-              <td style="vertical-align:middle;padding-right:12px;">
-                <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <td style="vertical-align:middle;padding-right:10px;">
+                <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <rect width="100" height="100" rx="14" fill="${LIME}" />
                   <path d="M42 32L58 50L42 68" stroke="#0a0a0a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </td>
               <td style="vertical-align:middle;">
-                <span style="font-family:Inter,Arial,sans-serif;font-size:18px;font-weight:600;color:${TEXT};letter-spacing:-0.01em;">
+                <span style="font-family:Inter,Arial,sans-serif;font-size:17px;font-weight:600;color:${TEXT};letter-spacing:-0.01em;">
                   Tweak<span style="color:${LIME};">&amp;Build</span>
                 </span>
               </td>
@@ -163,6 +168,10 @@ function renderBrandHeader(): string {
         </td>
       </tr>
     </table>`;
+}
+
+function renderAccentRule(): string {
+  return `<div style="height:2px;width:48px;background:${LIME_BRIGHT};border-radius:2px;margin:14px 0 0 0;line-height:2px;font-size:0;">&nbsp;</div>`;
 }
 
 export interface RenderProposalOptions {
@@ -192,11 +201,11 @@ export function renderProposalDocumentHtml(opts: RenderProposalOptions): string 
       if (!body) return "";
       const title = SECTION_TITLES[key];
       return `
-        <section style="margin:32px 0;">
-          <h2 style="font-family:Inter,Arial,sans-serif;font-size:18px;font-weight:700;color:${TEXT};margin:0 0 4px 0;letter-spacing:-0.01em;">${escapeHtml(
+        <section style="margin:30px 0;">
+          <h2 style="font-family:Inter,Arial,sans-serif;font-size:18px;font-weight:700;color:${TEXT};margin:0 0 6px 0;letter-spacing:-0.01em;">${escapeHtml(
         title
       )}</h2>
-          <div style="height:3px;width:32px;background:${LIME};border-radius:2px;margin:0 0 14px 0;"></div>
+          <div style="height:2px;width:36px;background:${LIME_BRIGHT};border-radius:2px;margin:0 0 16px 0;line-height:2px;font-size:0;">&nbsp;</div>
           ${renderSectionBody(body)}
         </section>`;
     })
@@ -209,41 +218,36 @@ export function renderProposalDocumentHtml(opts: RenderProposalOptions): string 
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Proposal — ${safeClient}</title>
 </head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Inter,Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;background:#f1f5f9;padding:24px 0;">
+<body style="margin:0;padding:0;background:${BG_SOFT};font-family:Inter,Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;color:${TEXT};">
+  <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;border-collapse:collapse;background:${BG_SOFT};padding:28px 12px;">
     <tr>
       <td align="center">
-        <table cellpadding="0" cellspacing="0" border="0" style="width:680px;max-width:100%;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid ${BORDER};">
+        <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:680px;max-width:100%;background:${CARD};border-radius:12px;overflow:hidden;border:1px solid ${BORDER};">
           <tr>
-            <td style="padding:28px 36px 18px 36px;border-bottom:1px solid ${BORDER};">
+            <td style="padding:26px 32px 18px 32px;">
               ${renderBrandHeader()}
+              ${renderAccentRule()}
             </td>
           </tr>
           <tr>
-            <td style="padding:24px 36px 12px 36px;">
-              <p style="margin:0;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${MUTED};font-weight:600;">Proposal</p>
+            <td style="padding:8px 32px 4px 32px;">
+              <p style="margin:0;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:${MUTED};font-weight:700;">Proposal</p>
               <h1 style="margin:6px 0 4px 0;font-family:Inter,Arial,sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:${TEXT};">${safeClient}</h1>
-              ${safeUrl ? `<p style="margin:0;color:${MUTED};font-size:13px;">${safeUrl}</p>` : ""}
-              <p style="margin:10px 0 0 0;color:${MUTED};font-size:12px;">${date}</p>
+              ${safeUrl ? `<p style="margin:4px 0 0 0;color:${MUTED};font-size:14px;">${safeUrl}</p>` : ""}
+              <p style="margin:8px 0 0 0;color:${MUTED};font-size:13px;">${date}</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:4px 36px 24px 36px;">
+            <td style="padding:8px 32px 28px 32px;">
               ${sectionsHtml}
             </td>
           </tr>
           <tr>
-            <td style="padding:18px 36px 24px 36px;border-top:1px solid ${BORDER};background:#fafaf9;">
-              <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
-                <tr>
-                  <td style="font-size:12px;color:${MUTED};">
-                    Tweak &amp; Build · New Jersey
-                  </td>
-                  <td align="right" style="font-size:12px;">
-                    <a href="https://tweakandbuild.com" style="color:${LIME};text-decoration:none;font-weight:600;">tweakandbuild.com</a>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding:18px 32px 22px 32px;border-top:1px solid ${BORDER};background:${BG_SOFT};">
+              <p style="margin:0;font-size:13px;color:${MUTED};line-height:1.6;">
+                Sent via Tweak &amp; Build OS ·
+                <a href="https://tweakandbuild.com" style="color:${LIME};text-decoration:none;font-weight:600;">tweakandbuild.com</a>
+              </p>
             </td>
           </tr>
         </table>
@@ -271,8 +275,9 @@ export function messageHasOwnGreeting(
 }
 
 /**
- * Render just the proposal sections as a styled fragment — used inside
- * the email body underneath the personal note from Iyad.
+ * Render the proposal email body — Iyad's personal note up top, then a
+ * styled "Proposal Preview" section. Tuned for Gmail mobile: soft
+ * off-white outer, white card, generous padding, 15–16px body text.
  */
 export function renderProposalEmailBody(opts: {
   sections: ProposalSections;
@@ -286,7 +291,13 @@ export function renderProposalEmailBody(opts: {
   const hasOwnGreeting = messageHasOwnGreeting(message, recipientName);
   const messageHtml = escapeHtml(message)
     .split(/\r?\n\r?\n/)
-    .map((para) => `<p style="margin:0 0 14px 0;color:${TEXT};font-size:15px;line-height:1.6;">${para.replace(/\n/g, "<br/>")}</p>`)
+    .map(
+      (para) =>
+        `<p style="margin:0 0 16px 0;color:${TEXT};font-size:16px;line-height:1.65;">${para.replace(
+          /\n/g,
+          "<br/>"
+        )}</p>`
+    )
     .join("");
 
   const sectionsHtml = SECTION_ORDER
@@ -296,35 +307,38 @@ export function renderProposalEmailBody(opts: {
       const title = SECTION_TITLES[key];
       return `
         <section style="margin:24px 0;">
-          <h2 style="font-family:Inter,Arial,sans-serif;font-size:16px;font-weight:700;color:${TEXT};margin:0 0 4px 0;">${escapeHtml(
+          <h2 style="font-family:Inter,Arial,sans-serif;font-size:17px;font-weight:700;color:${TEXT};margin:0 0 6px 0;letter-spacing:-0.01em;">${escapeHtml(
         title
       )}</h2>
-          <div style="height:2px;width:28px;background:${LIME};border-radius:2px;margin:0 0 10px 0;"></div>
+          <div style="height:2px;width:32px;background:${LIME_BRIGHT};border-radius:2px;margin:0 0 12px 0;line-height:2px;font-size:0;">&nbsp;</div>
           ${renderSectionBody(body)}
         </section>`;
     })
     .join("");
 
   return `<!doctype html>
-<html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Inter,Arial,Helvetica,sans-serif;">
-  <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#f1f5f9;padding:24px 0;">
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Proposal — ${safeClient}</title></head>
+<body style="margin:0;padding:0;background:${BG_SOFT};font-family:Inter,Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;color:${TEXT};">
+  <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;background:${BG_SOFT};padding:28px 12px;">
     <tr><td align="center">
-      <table cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:100%;background:#fff;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;">
-        <tr><td style="padding:24px 32px 14px 32px;border-bottom:1px solid ${BORDER};">${renderBrandHeader()}</td></tr>
-        <tr><td style="padding:22px 32px 4px 32px;">
-          ${hasOwnGreeting ? "" : `<p style="margin:0 0 14px 0;color:${TEXT};font-size:15px;line-height:1.6;">Hi ${safeRecipient},</p>`}
+      <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:640px;max-width:100%;background:${CARD};border:1px solid ${BORDER};border-radius:12px;overflow:hidden;">
+        <tr><td style="padding:26px 28px 18px 28px;">
+          ${renderBrandHeader()}
+          ${renderAccentRule()}
+        </td></tr>
+        <tr><td style="padding:22px 28px 8px 28px;">
+          ${hasOwnGreeting ? "" : `<p style="margin:0 0 16px 0;color:${TEXT};font-size:16px;line-height:1.65;">Hi ${safeRecipient},</p>`}
           ${messageHtml}
         </td></tr>
-        <tr><td style="padding:10px 32px 0 32px;">
-          <div style="border-top:1px dashed ${BORDER};padding-top:14px;">
-            <p style="margin:0;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${MUTED};font-weight:600;">Proposal Preview</p>
-            <h1 style="margin:4px 0 0 0;font-family:Inter,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:${TEXT};">${safeClient}</h1>
+        <tr><td style="padding:12px 28px 0 28px;">
+          <div style="border-top:1px solid ${BORDER};padding-top:18px;">
+            <p style="margin:0;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:${MUTED};font-weight:700;">Proposal Preview</p>
+            <h1 style="margin:6px 0 0 0;font-family:Inter,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:${TEXT};">${safeClient}</h1>
           </div>
         </td></tr>
-        <tr><td style="padding:0 32px 18px 32px;">${sectionsHtml}</td></tr>
-        <tr><td style="padding:18px 32px 22px 32px;border-top:1px solid ${BORDER};background:#fafaf9;">
-          <p style="margin:0;font-size:12px;color:${MUTED};">
+        <tr><td style="padding:4px 28px 20px 28px;">${sectionsHtml}</td></tr>
+        <tr><td style="padding:20px 28px 24px 28px;border-top:1px solid ${BORDER};background:${BG_SOFT};">
+          <p style="margin:0;font-size:13px;color:${MUTED};line-height:1.6;">
             Sent via Tweak &amp; Build OS ·
             <a href="https://tweakandbuild.com" style="color:${LIME};text-decoration:none;font-weight:600;">tweakandbuild.com</a>
           </p>
