@@ -65,11 +65,28 @@ const STATUS_VARIANTS: Record<ProposalStatus, { label: string; classes: string }
   draft: { label: "Draft", classes: "bg-zinc-700/60 text-zinc-300" },
   saved: { label: "Saved", classes: "bg-cyan-500/15 text-cyan-300" },
   sent: { label: "Sent", classes: "bg-blue-500/15 text-blue-300" },
+  active: { label: "Active", classes: "bg-lime-500/20 text-lime-300 ring-1 ring-lime-400/40" },
   won: { label: "Won", classes: "bg-lime-500/15 text-lime-400" },
   lost: { label: "Lost", classes: "bg-red-500/15 text-red-300" },
+  obsolete: { label: "Obsolete", classes: "bg-zinc-800/70 text-zinc-500" },
+  archived: { label: "Archived", classes: "bg-zinc-800/70 text-zinc-500" },
 };
 
-const STATUS_OPTIONS: ProposalStatus[] = ["draft", "saved", "sent", "won", "lost"];
+const STATUS_OPTIONS: ProposalStatus[] = [
+  "draft",
+  "saved",
+  "sent",
+  "active",
+  "won",
+  "lost",
+  "obsolete",
+  "archived",
+];
+
+const MUTED_STATUSES: ReadonlySet<ProposalStatus> = new Set([
+  "obsolete",
+  "archived",
+]);
 
 const DEFAULT_EMAIL_INTRO = (clientName: string, recipientName: string) => `Hey ${recipientName || "there"},
 
@@ -812,10 +829,29 @@ function ProposalRow({
   proposal: Proposal;
   onStatusChange: (id: string, status: ProposalStatus) => void;
 }) {
-  const variant = STATUS_VARIANTS[proposal.status];
+  const variant = STATUS_VARIANTS[proposal.status] ?? STATUS_VARIANTS.draft;
+  const muted = MUTED_STATUSES.has(proposal.status);
+  const isActive = proposal.status === "active";
+  const rowClasses = [
+    "text-sm transition-colors",
+    muted ? "opacity-50 [&_td]:line-through [&_td]:decoration-zinc-700" : "",
+    isActive ? "bg-lime-500/5" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <tr className="text-sm">
-      <td className="px-3 py-2 text-zinc-100">{proposal.client_name || "—"}</td>
+    <tr className={rowClasses}>
+      <td className="px-3 py-2 text-zinc-100">
+        <div className="flex items-center gap-2">
+          {isActive && (
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full bg-lime-400"
+              aria-label="Active proposal"
+            />
+          )}
+          <span>{proposal.client_name || "—"}</span>
+        </div>
+      </td>
       <td className="px-3 py-2 text-zinc-400">{proposal.business_type || "—"}</td>
       <td className="px-3 py-2 text-zinc-300">
         {moneyFmt(Number(proposal.total_one_time || 0))}

@@ -127,7 +127,18 @@ export async function POST(request: NextRequest) {
 
 const patchSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["draft", "saved", "sent", "won", "lost"]).optional(),
+  status: z
+    .enum([
+      "draft",
+      "saved",
+      "sent",
+      "won",
+      "lost",
+      "active",
+      "obsolete",
+      "archived",
+    ])
+    .optional(),
 });
 
 // PATCH /api/proposals — update status of a proposal

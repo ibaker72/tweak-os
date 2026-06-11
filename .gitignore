@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local OpenClaw bearer token — must never be committed
+.openclaw_token
+
 # vercel
 .vercel
 
