@@ -469,13 +469,21 @@ export function ProposalsPageInner() {
   async function handleSendEmail(
     payload: EmailProposalPayload
   ): Promise<{ ok: boolean; error?: string }> {
+    // The server requires a non-empty clientName, but the user-facing form only
+    // exposes Recipient Name. Fall back to recipientName (or a generic label for
+    // test sends) so the email can go out even when clientName isn't filled in.
+    const effectiveClientName =
+      clientName.trim() ||
+      payload.recipientName.trim() ||
+      (payload.sendToOwnerOnly ? "Test Proposal" : "");
+
     let pdfBase64: string | undefined;
     if (payload.attachPdf) {
       try {
         const { buildProposalPdfBase64 } = await import("@/lib/proposals/pdf");
         pdfBase64 = buildProposalPdfBase64({
           sections,
-          clientName,
+          clientName: effectiveClientName,
           websiteUrl: websiteUrl || undefined,
         });
       } catch (err) {
@@ -490,7 +498,7 @@ export function ProposalsPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           proposalId: savedId ?? undefined,
-          clientName,
+          clientName: effectiveClientName,
           websiteUrl,
           recipientName: payload.recipientName,
           recipientEmail: payload.recipientEmail,

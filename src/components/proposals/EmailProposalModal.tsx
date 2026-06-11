@@ -55,11 +55,17 @@ function EmailProposalModalForm({
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim());
   const subjectValid = subject.trim().length > 0;
-  const sendRealDisabled = !emailValid || !subjectValid || proposalEmpty || !!sending;
+  const recipientNameValid = recipientName.trim().length > 0;
+  const sendRealDisabled =
+    !recipientNameValid || !emailValid || !subjectValid || proposalEmpty || !!sending;
   const sendTestDisabled = !subjectValid || proposalEmpty || !!sending;
 
   async function dispatch(test: boolean) {
     setError(null);
+    if (!test && !recipientNameValid) {
+      setError("Recipient name is required");
+      return;
+    }
     setSending(test ? "test" : "real");
     try {
       const result = await onSend({
@@ -122,7 +128,7 @@ function EmailProposalModalForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  <User2 className="h-3 w-3" /> Recipient Name
+                  <User2 className="h-3 w-3" /> Recipient Name <span className="text-red-400">*</span>
                 </label>
                 <Input
                   className="mt-1.5"
