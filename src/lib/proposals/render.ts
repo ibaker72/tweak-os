@@ -255,6 +255,22 @@ export function renderProposalDocumentHtml(opts: RenderProposalOptions): string 
 }
 
 /**
+ * Returns true when the message body already opens with a greeting like
+ * "Hi", "Hey", "Hello", "Dear", or the recipient's own name — so the
+ * wrapper shouldn't prepend its own "Hi {name}," line.
+ */
+export function messageHasOwnGreeting(
+  message: string,
+  recipientName: string
+): boolean {
+  const trimmed = message.trimStart();
+  if (/^(hi|hey|hello|dear)\b/i.test(trimmed)) return true;
+  const name = recipientName.trim();
+  if (name && trimmed.toLowerCase().startsWith(name.toLowerCase())) return true;
+  return false;
+}
+
+/**
  * Render just the proposal sections as a styled fragment — used inside
  * the email body underneath the personal note from Iyad.
  */
@@ -267,6 +283,7 @@ export function renderProposalEmailBody(opts: {
   const { sections, clientName, recipientName, message } = opts;
   const safeClient = escapeHtml(clientName || "your business");
   const safeRecipient = escapeHtml(recipientName || "there");
+  const hasOwnGreeting = messageHasOwnGreeting(message, recipientName);
   const messageHtml = escapeHtml(message)
     .split(/\r?\n\r?\n/)
     .map((para) => `<p style="margin:0 0 14px 0;color:${TEXT};font-size:15px;line-height:1.6;">${para.replace(/\n/g, "<br/>")}</p>`)
@@ -296,7 +313,7 @@ export function renderProposalEmailBody(opts: {
       <table cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:100%;background:#fff;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;">
         <tr><td style="padding:24px 32px 14px 32px;border-bottom:1px solid ${BORDER};">${renderBrandHeader()}</td></tr>
         <tr><td style="padding:22px 32px 4px 32px;">
-          <p style="margin:0 0 14px 0;color:${TEXT};font-size:15px;line-height:1.6;">Hi ${safeRecipient},</p>
+          ${hasOwnGreeting ? "" : `<p style="margin:0 0 14px 0;color:${TEXT};font-size:15px;line-height:1.6;">Hi ${safeRecipient},</p>`}
           ${messageHtml}
         </td></tr>
         <tr><td style="padding:10px 32px 0 32px;">

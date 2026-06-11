@@ -90,9 +90,9 @@ const MUTED_STATUSES: ReadonlySet<ProposalStatus> = new Set([
   "archived",
 ]);
 
-const DEFAULT_EMAIL_INTRO = (clientName: string, recipientName: string) => `Hey ${recipientName || "there"},
+const DEFAULT_EMAIL_INTRO = (recipientName: string) => `Hey ${recipientName || "there"},
 
-I put together a quick website and local SEO plan for ${clientName || "your business"} based on the audit we ran.
+I put together a quick website and local SEO plan for your business based on the audit we ran.
 
 The main opportunity I saw is that the current site could be doing a better job capturing more local search demand and turning visitors into calls or quote requests.
 
@@ -1018,8 +1018,8 @@ export function ProposalsPageInner() {
       <EmailProposalModal
         open={emailOpen}
         onClose={() => setEmailOpen(false)}
-        defaultSubject={`Website + Local SEO Plan for ${clientName || "your business"}`}
-        defaultMessage={DEFAULT_EMAIL_INTRO(clientName, recipientName)}
+        defaultSubject="Website + Local SEO Plan"
+        defaultMessage={DEFAULT_EMAIL_INTRO(recipientName)}
         defaultRecipientName={recipientName}
         defaultRecipientEmail={recipientEmail}
         onSend={handleSendEmail}
