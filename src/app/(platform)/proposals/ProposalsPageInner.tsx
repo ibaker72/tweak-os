@@ -1054,26 +1054,6 @@ function ProposalRow({
   onCopyLink: (id: string) => void;
   onStatusChange: (id: string, status: ProposalStatus) => void;
 }) {
-<<<<<<< HEAD
-  const isMuted = proposal.status === "lost";
-  return (
-    <tr
-      className={`group cursor-pointer text-sm transition-colors hover:bg-zinc-900/80 ${
-        isSelected ? "bg-lime-400/10 ring-1 ring-inset ring-lime-400/30" : ""
-      } ${isMuted ? "opacity-60" : ""}`}
-      onClick={() => onView(proposal)}
-    >
-      <td className="px-3 py-3 text-zinc-100">
-        <div className="font-medium group-hover:text-lime-300">
-          {proposal.client_name || "—"}
-        </div>
-        <div className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500 sm:hidden">
-          <Eye className="h-3 w-3" /> Tap to view
-        </div>
-      </td>
-      <td className="px-3 py-3 text-zinc-400">{proposal.business_type || "—"}</td>
-      <td className="px-3 py-3 text-zinc-300">
-=======
   const variant = STATUS_VARIANTS[proposal.status] ?? STATUS_VARIANTS.draft;
   const muted = MUTED_STATUSES.has(proposal.status);
   const isActive = proposal.status === "active";
@@ -1099,7 +1079,6 @@ function ProposalRow({
       </td>
       <td className="px-3 py-2 text-zinc-400">{proposal.business_type || "—"}</td>
       <td className="px-3 py-2 text-zinc-300">
->>>>>>> 0b12be34fb4d9a9f1cee61fcf762d3c3a383e12b
         {moneyFmt(Number(proposal.total_one_time || 0))}
         {Number(proposal.total_monthly || 0) > 0 && (
           <span className="text-xs text-zinc-500">
