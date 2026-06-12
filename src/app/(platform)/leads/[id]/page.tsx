@@ -5,10 +5,14 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadDetailCard } from "@/components/dashboard/lead-detail-card";
 import { LeadDetailExtras } from "@/components/dashboard/lead-detail-extras";
 import { LeadAuditTab } from "@/components/audit/LeadAuditTab";
+import { SmsPanel } from "@/components/dashboard/sms-panel";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { getSmsMessagesForLead } from "@/lib/sms/queries";
+import { isSmsSendingEnabled } from "@/lib/sms/config";
+import type { SmsMessage } from "@/lib/leads/types";
 
 export default async function LeadDetailPage({
   params,
@@ -50,6 +54,13 @@ export default async function LeadDetailPage({
     agents = [];
   }
 
+  let smsMessages: SmsMessage[] = [];
+  try {
+    smsMessages = await getSmsMessagesForLead(supabase, id, 25);
+  } catch {
+    smsMessages = [];
+  }
+
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       <DashboardHeader
@@ -70,6 +81,12 @@ export default async function LeadDetailPage({
         leadId={lead.id}
         website={lead.website}
         audit={latestAudit}
+      />
+
+      <SmsPanel
+        lead={lead}
+        messages={smsMessages}
+        sendingEnabled={isSmsSendingEnabled()}
       />
 
       <LeadDetailExtras lead={lead} agents={agents} />

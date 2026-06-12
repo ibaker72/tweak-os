@@ -22,6 +22,38 @@ export type EnrichmentStatus =
 
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
+export type SmsStatus = "allowed" | "opted_out" | "do_not_contact" | "unknown";
+
+export type SmsDirection = "inbound" | "outbound";
+
+export type SmsMessageStatus =
+  | "draft"
+  | "queued"
+  | "sent"
+  | "delivered"
+  | "failed"
+  | "received"
+  | "blocked"
+  | "disabled";
+
+export interface SmsMessage {
+  id: string;
+  lead_id: string | null;
+  direction: SmsDirection;
+  status: SmsMessageStatus;
+  from_number: string | null;
+  to_number: string | null;
+  body: string;
+  twilio_message_sid: string | null;
+  twilio_status: string | null;
+  error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+  received_at: string | null;
+}
+
 export interface SocialLinks {
   linkedin?: string | null;
   twitter?: string | null;
@@ -91,6 +123,10 @@ export interface Lead {
   archived_at: string | null;
   deleted_at: string | null;
   previous_status: string | null;
+  sms_status: SmsStatus;
+  last_sms_sent_at: string | null;
+  last_sms_received_at: string | null;
+  sms_notes: string | null;
   created_at: string;
   updated_at: string;
 
