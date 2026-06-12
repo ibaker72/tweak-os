@@ -18,6 +18,24 @@ export async function getLeads(
 ): Promise<{ data: Lead[]; count: number }> {
   let query = supabase.from("leads").select("*", { count: "exact" });
 
+  // View scoping — archived/deleted are hidden by default. An explicit
+  // lifecycle_status filter overrides the view scope.
+  if (!filters.lifecycle_status) {
+    if (filters.view === "archived") {
+      query = query
+        .not("archived_at", "is", null)
+        .is("deleted_at", null);
+    } else if (filters.view === "deleted") {
+      query = query.not("deleted_at", "is", null);
+    } else if (filters.view === "active") {
+      query = query
+        .is("archived_at", null)
+        .is("deleted_at", null)
+        .not("lifecycle_status", "in", "(archived,deleted)");
+    }
+    // view === "all" applies no archive/delete filter.
+  }
+
   if (filters.search) {
     query = query.or(
       `business_name.ilike.%${filters.search}%,city.ilike.%${filters.search}%,niche.ilike.%${filters.search}%,website.ilike.%${filters.search}%,email.ilike.%${filters.search}%`

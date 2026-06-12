@@ -10,6 +10,8 @@ const lifecycleColors: Record<LifecycleStatus, "default" | "secondary" | "destru
   won: "success",
   lost: "destructive",
   not_a_fit: "secondary",
+  archived: "outline",
+  deleted: "destructive",
 };
 
 const enrichmentColors: Record<EnrichmentStatus, "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info"> = {
