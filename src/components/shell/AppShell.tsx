@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import type { Activity } from "./ActivityFeed";
+import { ToastProvider } from "@/components/ui/toast";
 
 interface Breadcrumb {
   label: string;
@@ -51,6 +52,7 @@ export function AppShell({
   }, []);
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-zinc-950">
       <Sidebar
         apiUsage={
@@ -86,5 +88,6 @@ export function AppShell({
         </div>
       </main>
     </div>
+    </ToastProvider>
   );
 }

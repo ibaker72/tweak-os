@@ -306,6 +306,183 @@ export async function bulkUpdateLeadStatus(
 }
 
 // ============================================
+// Lead Management States (archive / soft-delete / restore / contacted)
+// ============================================
+
+const STATE_STATUSES = new Set(["archived", "deleted"]);
+
+// Capture the lead's previous status so restore can put it back where it was.
+async function snapshotPreviousStatuses(
+  supabase: SupabaseClient,
+  leadIds: string[]
+): Promise<Map<string, string | null>> {
+  if (leadIds.length === 0) return new Map();
+  const { data } = await supabase
+    .from("leads")
+    .select("id, lifecycle_status, previous_status")
+    .in("id", leadIds);
+
+  const map = new Map<string, string | null>();
+  for (const row of (data ?? []) as Array<{
+    id: string;
+    lifecycle_status: string;
+    previous_status: string | null;
+  }>) {
+    // If the lead is already in a state status, preserve the earlier previous_status.
+    const current = STATE_STATUSES.has(row.lifecycle_status)
+      ? row.previous_status
+      : row.lifecycle_status;
+    map.set(row.id, current);
+  }
+  return map;
+}
+
+export async function archiveLead(
+  supabase: SupabaseClient,
+  leadId: string
+): Promise<void> {
+  await bulkArchiveLeads(supabase, [leadId]);
+}
+
+export async function bulkArchiveLeads(
+  supabase: SupabaseClient,
+  leadIds: string[]
+): Promise<void> {
+  if (leadIds.length === 0) return;
+  const previous = await snapshotPreviousStatuses(supabase, leadIds);
+  const now = new Date().toISOString();
+
+  // Group by previous_status so we can write the right snapshot per lead.
+  // In practice most batches share a status, but we update one-by-one in a
+  // transaction-free path when statuses diverge.
+  const byPrev = new Map<string | null, string[]>();
+  for (const id of leadIds) {
+    const prev = previous.get(id) ?? null;
+    const arr = byPrev.get(prev);
+    if (arr) arr.push(id);
+    else byPrev.set(prev, [id]);
+  }
+
+  for (const [prev, ids] of byPrev) {
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        lifecycle_status: "archived",
+        archived_at: now,
+        deleted_at: null,
+        previous_status: prev,
+      })
+      .in("id", ids);
+    if (error) throw error;
+  }
+}
+
+export async function softDeleteLead(
+  supabase: SupabaseClient,
+  leadId: string
+): Promise<void> {
+  await bulkSoftDeleteLeads(supabase, [leadId]);
+}
+
+export async function bulkSoftDeleteLeads(
+  supabase: SupabaseClient,
+  leadIds: string[]
+): Promise<void> {
+  if (leadIds.length === 0) return;
+  const previous = await snapshotPreviousStatuses(supabase, leadIds);
+  const now = new Date().toISOString();
+
+  const byPrev = new Map<string | null, string[]>();
+  for (const id of leadIds) {
+    const prev = previous.get(id) ?? null;
+    const arr = byPrev.get(prev);
+    if (arr) arr.push(id);
+    else byPrev.set(prev, [id]);
+  }
+
+  for (const [prev, ids] of byPrev) {
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        lifecycle_status: "deleted",
+        deleted_at: now,
+        previous_status: prev,
+      })
+      .in("id", ids);
+    if (error) throw error;
+  }
+}
+
+// Restore from archived/deleted — falls back to "new" if there's no snapshot.
+export async function restoreLead(
+  supabase: SupabaseClient,
+  leadId: string
+): Promise<void> {
+  await bulkRestoreLeads(supabase, [leadId]);
+}
+
+export async function bulkRestoreLeads(
+  supabase: SupabaseClient,
+  leadIds: string[]
+): Promise<void> {
+  if (leadIds.length === 0) return;
+
+  const { data } = await supabase
+    .from("leads")
+    .select("id, previous_status")
+    .in("id", leadIds);
+
+  const byTarget = new Map<string, string[]>();
+  for (const row of (data ?? []) as Array<{
+    id: string;
+    previous_status: string | null;
+  }>) {
+    const target =
+      row.previous_status && !STATE_STATUSES.has(row.previous_status)
+        ? row.previous_status
+        : "new";
+    const arr = byTarget.get(target);
+    if (arr) arr.push(row.id);
+    else byTarget.set(target, [row.id]);
+  }
+
+  for (const [target, ids] of byTarget) {
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        lifecycle_status: target,
+        archived_at: null,
+        deleted_at: null,
+        previous_status: null,
+      })
+      .in("id", ids);
+    if (error) throw error;
+  }
+}
+
+export async function markLeadContacted(
+  supabase: SupabaseClient,
+  leadId: string
+): Promise<void> {
+  await bulkMarkContacted(supabase, [leadId]);
+}
+
+export async function bulkMarkContacted(
+  supabase: SupabaseClient,
+  leadIds: string[]
+): Promise<void> {
+  if (leadIds.length === 0) return;
+  const { error } = await supabase
+    .from("leads")
+    .update({
+      lifecycle_status: "contacted",
+      contacted_at: new Date().toISOString(),
+    })
+    .in("id", leadIds);
+  if (error) throw error;
+}
+
+// ============================================
 // Import Job Mutations
 // ============================================
 

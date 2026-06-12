@@ -4,21 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Lead, LifecycleStatus } from "@/lib/leads/types";
+import type { LeadView } from "@/lib/validators/lead";
 import type { OpportunityGrade } from "@/lib/audits/types";
-import { getScoreColor } from "@/lib/leads/scoring";
 import {
   LifecycleStatusBadge,
-  EnrichmentStatusBadge,
 } from "./lead-status-badge";
 import { OpportunityGradeBadge } from "@/components/audit/OpportunityGradeBadge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
+import { LeadActionMenu } from "@/components/leads/lead-action-menu";
 import { truncate } from "@/lib/utils";
 import {
-  Trash2,
   RefreshCw,
-  Download,
   CheckSquare,
   Square,
   UserCircle,
@@ -34,17 +34,24 @@ interface LeadsTableProps {
   leads: Lead[];
   agents?: { id: string; display_name: string }[];
   auditsByLeadId?: Record<string, AuditSummary>;
+  view?: LeadView;
 }
 
 export function LeadsTable({
   leads,
   agents = [],
   auditsByLeadId = {},
+  view = "active",
 }: LeadsTableProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isArchivedView = view === "archived";
+  const isDeletedView = view === "deleted";
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -63,18 +70,35 @@ export function LeadsTable({
     }
   }
 
-  async function handleBulkAction() {
+  async function postAction(action: "archive" | "restore" | "soft_delete" | "mark_contacted", ids: string[]) {
+    const res = await fetch("/api/leads", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, action }),
+    });
+    if (!res.ok) throw new Error("Request failed");
+  }
+
+  async function performBulkAction() {
     if (selected.size === 0 || !bulkAction) return;
     setProcessing(true);
 
     const ids = [...selected];
     try {
       if (bulkAction === "delete") {
-        await fetch("/api/leads", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids }),
-        });
+        // Bulk delete is gated through the confirmation dialog instead.
+        setConfirmDelete(true);
+        setProcessing(false);
+        return;
+      } else if (bulkAction === "archive") {
+        await postAction("archive", ids);
+        toast(`${ids.length} lead${ids.length === 1 ? "" : "s"} archived`, "success");
+      } else if (bulkAction === "restore") {
+        await postAction("restore", ids);
+        toast(`${ids.length} lead${ids.length === 1 ? "" : "s"} restored`, "success");
+      } else if (bulkAction === "contacted") {
+        await postAction("mark_contacted", ids);
+        toast(`${ids.length} lead${ids.length === 1 ? "" : "s"} marked contacted`, "success");
       } else if (bulkAction.startsWith("assign:")) {
         const agentId = bulkAction.replace("assign:", "");
         await fetch("/api/leads/assign", {
@@ -108,15 +132,46 @@ export function LeadsTable({
       router.refresh();
     } catch (err) {
       console.error("Bulk action error:", err);
+      const errorMessage =
+        bulkAction === "archive"
+          ? "Could not archive leads"
+          : bulkAction === "restore"
+            ? "Could not restore leads"
+            : "Could not update leads";
+      toast(errorMessage, "error");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  async function confirmBulkDelete() {
+    const ids = [...selected];
+    setProcessing(true);
+    try {
+      await postAction("soft_delete", ids);
+      toast(`${ids.length} lead${ids.length === 1 ? "" : "s"} deleted`, "success");
+      setSelected(new Set());
+      setBulkAction("");
+      setConfirmDelete(false);
+      router.refresh();
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+      toast("Could not delete leads", "error");
     } finally {
       setProcessing(false);
     }
   }
 
   if (leads.length === 0) {
+    const emptyText =
+      view === "archived"
+        ? "No archived leads"
+        : view === "deleted"
+          ? "No deleted leads"
+          : "No leads found";
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center sm:p-12">
-        <p className="text-sm text-zinc-400">No leads found</p>
+        <p className="text-sm text-zinc-400">{emptyText}</p>
       </div>
     );
   }
@@ -127,43 +182,63 @@ export function LeadsTable({
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 sm:gap-3 sm:px-4">
           <span className="text-sm text-zinc-300">
-            {selected.size} selected
+            {selected.size} selected on this page
           </span>
           <Select
             value={bulkAction}
             onChange={(e) => setBulkAction(e.target.value)}
-            className="w-40 text-xs sm:w-44"
+            className="w-44 text-xs sm:w-52"
+            aria-label="Bulk action"
           >
             <option value="">Choose action...</option>
-            <option value="contacted">Mark Contacted</option>
-            <option value="replied">Mark Replied</option>
-            <option value="meeting_booked">Mark Meeting Booked</option>
-            <option value="won">Mark Won</option>
-            <option value="lost">Mark Lost</option>
-            <option value="not_a_fit">Mark Not a Fit</option>
-            {agents.length > 0 && (
+            {(isArchivedView || isDeletedView) && (
+              <option value="restore">Restore selected</option>
+            )}
+            {!isArchivedView && !isDeletedView && (
+              <>
+                <option value="archive">Archive selected</option>
+                <option value="contacted">Mark Contacted</option>
+                <option value="replied">Mark Replied</option>
+                <option value="meeting_booked">Mark Meeting Booked</option>
+                <option value="won">Mark Won</option>
+                <option value="lost">Mark Lost</option>
+                <option value="not_a_fit">Mark Not a Fit</option>
+              </>
+            )}
+            {agents.length > 0 && !isDeletedView && (
               <optgroup label="Assign to Agent">
                 {agents.map((a) => (
                   <option key={a.id} value={`assign:${a.id}`}>{a.display_name}</option>
                 ))}
               </optgroup>
             )}
-            <option value="auto-assign">Auto-Assign (Round Robin)</option>
-            <option value="re-enrich">Re-enrich</option>
+            {!isDeletedView && (
+              <>
+                <option value="auto-assign">Auto-Assign (Round Robin)</option>
+                <option value="re-enrich">Re-enrich</option>
+              </>
+            )}
             <option value="export">Export to CSV</option>
-            <option value="delete">Delete</option>
+            <option value="delete">Delete selected</option>
           </Select>
           <Button
             size="sm"
-            onClick={handleBulkAction}
+            onClick={performBulkAction}
             disabled={!bulkAction || processing}
           >
             {processing ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Apply"}
           </Button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-xs text-zinc-500 hover:text-zinc-300"
+            type="button"
+          >
+            Clear selection
+          </button>
         </div>
       )}
 
-      {/* Mobile-only card list — easier to scan and tap than a wide table */}
+      {/* Mobile card view */}
       <div className="space-y-2 md:hidden">
         {leads.map((lead) => (
           <div
@@ -191,7 +266,7 @@ export function LeadsTable({
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <ScoreIndicator score={lead.score} />
-                  <LifecycleStatusBadge status={lead.lifecycle_status} />
+                  <LifecycleStatusBadge status={lead.lifecycle_status as LifecycleStatus} />
                   {lead.niche && (
                     <Badge variant="secondary" className="text-[10px]">
                       {truncate(lead.niche, 20)}
@@ -202,6 +277,12 @@ export function LeadsTable({
                   )}
                 </div>
               </Link>
+              <LeadActionMenu
+                leadId={lead.id}
+                hasWebsite={!!lead.website}
+                alreadyContacted={lead.lifecycle_status === "contacted"}
+                showRestore={isArchivedView || isDeletedView}
+              />
             </div>
           </div>
         ))}
@@ -216,6 +297,11 @@ export function LeadsTable({
                   <button
                     onClick={toggleSelectAll}
                     className="text-zinc-500 hover:text-zinc-300"
+                    aria-label={
+                      selected.size === leads.length
+                        ? "Deselect all"
+                        : "Select all on this page"
+                    }
                   >
                     {selected.size === leads.length ? (
                       <CheckSquare className="h-4 w-4" />
@@ -251,6 +337,7 @@ export function LeadsTable({
                 <th className="hidden px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 xl:table-cell sm:px-4">
                   Contact
                 </th>
+                <th className="w-12 px-3 py-3" aria-label="Actions" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
@@ -263,6 +350,7 @@ export function LeadsTable({
                     <button
                       onClick={() => toggleSelect(lead.id)}
                       className="text-zinc-500 hover:text-zinc-300"
+                      aria-label={selected.has(lead.id) ? "Deselect lead" : "Select lead"}
                     >
                       {selected.has(lead.id) ? (
                         <CheckSquare className="h-4 w-4 text-lime-400" />
@@ -334,7 +422,7 @@ export function LeadsTable({
                     className="px-3 py-3 text-center sm:px-4"
                     onClick={() => router.push(`/leads/${lead.id}`)}
                   >
-                    <LifecycleStatusBadge status={lead.lifecycle_status} />
+                    <LifecycleStatusBadge status={lead.lifecycle_status as LifecycleStatus} />
                   </td>
                   <td
                     className="hidden px-3 py-3 text-sm lg:table-cell sm:px-4"
@@ -359,12 +447,36 @@ export function LeadsTable({
                   >
                     {lead.email || lead.email_1 || lead.phone || lead.phone_1 || "—"}
                   </td>
+                  <td
+                    className="px-3 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <LeadActionMenu
+                      leadId={lead.id}
+                      hasWebsite={!!lead.website}
+                      alreadyContacted={lead.lifecycle_status === "contacted"}
+                      showRestore={isArchivedView || isDeletedView}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={(v) => {
+          if (!processing) setConfirmDelete(v);
+        }}
+        title={`Delete ${selected.size} selected lead${selected.size === 1 ? "" : "s"}?`}
+        description="Delete selected leads? This cannot be undone."
+        confirmLabel="Delete"
+        tone="destructive"
+        busy={processing}
+        onConfirm={confirmBulkDelete}
+      />
     </div>
   );
 }

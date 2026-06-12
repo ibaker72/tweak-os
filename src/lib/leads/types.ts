@@ -10,7 +10,9 @@ export type LifecycleStatus =
   | "meeting_booked"
   | "won"
   | "lost"
-  | "not_a_fit";
+  | "not_a_fit"
+  | "archived"
+  | "deleted";
 
 export type EnrichmentStatus =
   | "pending"
@@ -86,6 +88,9 @@ export interface Lead {
   source_filing_date: string | null;
   import_notes: string | null;
   contacted_at: string | null;
+  archived_at: string | null;
+  deleted_at: string | null;
+  previous_status: string | null;
   created_at: string;
   updated_at: string;
 
