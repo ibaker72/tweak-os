@@ -74,3 +74,9 @@ html, body {
 .pb-safe {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
+
+/* Mobile overflow protection: prevent any child from pushing the page wider */
+#__next, [data-nextjs-scroll-focus-boundary] {
+  max-width: 100vw;
+  overflow-x: hidden;
+}

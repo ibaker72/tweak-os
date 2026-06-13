@@ -82,8 +82,8 @@ export function AppShell({
       />
 
       {/* Main content: offset by sidebar on lg+, full width below */}
-      <main className="pt-14 lg:ml-64">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <main className="pt-14 lg:ml-64 min-w-0 overflow-x-hidden">
+        <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8 min-w-0">
           {children}
         </div>
       </main>
