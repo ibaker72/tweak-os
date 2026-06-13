@@ -262,35 +262,45 @@ export default function WorkQueuePage() {
                 return (
                   <div
                     key={lead.id}
-                    className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
+                    className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
                   >
-                    <ScoreBadge score={lead.score} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/leads/${lead.id}`}
-                          className="truncate text-sm font-medium text-zinc-100 hover:text-lime-400"
-                        >
-                          {lead.business_name}
-                        </Link>
-                        {priorityInfo && (
-                          <span
-                            className={`text-[10px] font-medium ${priorityInfo.color}`}
+                    <div className="flex items-center gap-3">
+                      <ScoreBadge score={lead.score} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            href={`/leads/${lead.id}`}
+                            className="truncate text-sm font-medium text-zinc-100 hover:text-lime-400"
                           >
-                            {priorityInfo.label}
-                          </span>
-                        )}
+                            {lead.business_name}
+                          </Link>
+                          {priorityInfo && (
+                            <span
+                              className={`text-[10px] font-medium ${priorityInfo.color}`}
+                            >
+                              {priorityInfo.label}
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-xs text-zinc-500">
+                          {lead.next_action || "No action specified"}
+                          {daysOverdue > 0 && (
+                            <span className="ml-1 text-red-400">
+                              ({daysOverdue}d overdue)
+                            </span>
+                          )}
+                        </p>
                       </div>
-                      <p className="truncate text-xs text-zinc-500">
-                        {lead.next_action || "No action specified"}
-                        {daysOverdue > 0 && (
-                          <span className="ml-1 text-red-400">
-                            ({daysOverdue}d overdue)
-                          </span>
-                        )}
-                      </p>
+                      <LeadActionMenu
+                        leadId={lead.id}
+                        hasWebsite={!!lead.website}
+                        alreadyContacted={lead.lifecycle_status === "contacted"}
+                        onActionComplete={() =>
+                          handleActionComplete(lead.id)
+                        }
+                      />
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex items-center gap-1 mt-2 ml-12">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -307,14 +317,6 @@ export default function WorkQueuePage() {
                         <CalendarClock className="h-3.5 w-3.5" />
                         +1d
                       </Button>
-                      <LeadActionMenu
-                        leadId={lead.id}
-                        hasWebsite={!!lead.website}
-                        alreadyContacted={lead.lifecycle_status === "contacted"}
-                        onActionComplete={() =>
-                          handleActionComplete(lead.id)
-                        }
-                      />
                     </div>
                   </div>
                 );
@@ -341,26 +343,30 @@ export default function WorkQueuePage() {
               {data.due_sequences.map((seq) => (
                 <div
                   key={seq.id}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
+                  className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
                 >
-                  <ChannelIcon channel={seq.channel} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
-                        Step {seq.sequence_step}
-                      </Badge>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {seq.channel}
-                      </Badge>
+                  <div className="flex items-center gap-3">
+                    <ChannelIcon channel={seq.channel} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[10px]">
+                          Step {seq.sequence_step}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {seq.channel}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-zinc-400">
+                        {seq.subject || (seq.body?.slice(0, 80) ?? "No content")}
+                      </p>
                     </div>
-                    <p className="mt-1 truncate text-xs text-zinc-400">
-                      {seq.subject || (seq.body?.slice(0, 80) ?? "No content")}
-                    </p>
                   </div>
-                  <Button size="sm" onClick={() => handleMarkSent(seq.id)}>
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Mark Sent
-                  </Button>
+                  <div className="mt-2 ml-7">
+                    <Button size="sm" onClick={() => handleMarkSent(seq.id)} className="w-full sm:w-auto">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Mark Sent
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

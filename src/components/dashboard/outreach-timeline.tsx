@@ -141,7 +141,7 @@ export function OutreachTimeline({ leadId }: OutreachTimelineProps) {
         {/* Add form */}
         {showForm && (
           <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-zinc-500">Channel</label>
                 <Select

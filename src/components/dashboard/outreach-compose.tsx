@@ -145,9 +145,9 @@ export function OutreachCompose({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-2xl rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
-          <h3 className="text-base font-medium text-zinc-100">
-            Compose Outreach — {lead.business_name}
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3 sm:px-5 sm:py-4">
+          <h3 className="text-base font-medium text-zinc-100 truncate min-w-0">
+            Compose — {lead.business_name}
           </h3>
           <button
             onClick={onClose}
@@ -158,14 +158,14 @@ export function OutreachCompose({
         </div>
 
         {/* Channel Tabs */}
-        <div className="flex border-b border-zinc-800">
+        <div className="flex border-b border-zinc-800 overflow-x-auto">
           {channelTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.value}
                 onClick={() => setChannel(tab.value)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 px-3 py-3 text-sm font-medium transition-colors shrink-0 sm:px-4 ${
                   channel === tab.value
                     ? "border-b-2 border-lime-400 text-lime-400"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -179,7 +179,7 @@ export function OutreachCompose({
         </div>
 
         {/* Body */}
-        <div className="space-y-4 p-5">
+        <div className="space-y-4 p-4 sm:p-5">
           {/* Template selector */}
           {filteredTemplates.length > 0 && (
             <div>
@@ -236,7 +236,7 @@ export function OutreachCompose({
               type="datetime-local"
               value={scheduledFor}
               onChange={(e) => setScheduledFor(e.target.value)}
-              className="mt-1 w-64"
+              className="mt-1 w-full sm:w-64"
             />
           </div>
 
@@ -259,24 +259,26 @@ export function OutreachCompose({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-zinc-800 px-5 py-4">
+        <div className="flex flex-col gap-2 border-t border-zinc-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowPreview(!showPreview)}
+            className="w-full sm:w-auto"
           >
             <Eye className="h-4 w-4" />
             {showPreview ? "Hide Preview" : "Preview"}
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleSend("draft")}
               disabled={sending || !body}
+              className="w-full sm:w-auto"
             >
               <Save className="h-4 w-4" />
-              Save Draft
+              Draft
             </Button>
             {scheduledFor && (
               <Button
@@ -284,6 +286,7 @@ export function OutreachCompose({
                 size="sm"
                 onClick={() => handleSend("schedule")}
                 disabled={sending || !body}
+                className="w-full sm:w-auto"
               >
                 <Clock className="h-4 w-4" />
                 Schedule
@@ -293,6 +296,7 @@ export function OutreachCompose({
               size="sm"
               onClick={() => handleSend("send")}
               disabled={sending || !body}
+              className="w-full sm:w-auto col-span-2 sm:col-span-1"
             >
               <Send className="h-4 w-4" />
               {sending ? "Sending..." : "Send Now"}

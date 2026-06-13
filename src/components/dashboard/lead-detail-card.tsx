@@ -256,7 +256,7 @@ export function LeadDetailCard({
               <p className="text-xs font-semibold uppercase tracking-wider text-lime-400">
                 NJ Registry
               </p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
                 {lead.source_filing_date && (
                   <InfoRow label="Filing Date" value={lead.source_filing_date} />
                 )}
@@ -286,13 +286,13 @@ export function LeadDetailCard({
           )}
 
           {lead.website && (
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-zinc-500" />
+            <div className="flex items-center gap-2 min-w-0">
+              <Globe className="h-4 w-4 text-zinc-500 shrink-0" />
               <a
                 href={lead.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-400 hover:underline"
+                className="text-sm text-blue-400 hover:underline break-all min-w-0"
               >
                 {lead.website}
                 <ExternalLink className="ml-1 inline h-3 w-3" />
@@ -539,8 +539,8 @@ export function LeadDetailCard({
           )}
 
           {/* Manual score adjustment */}
-          <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
-            <label className="text-xs text-zinc-500">Manual adjust:</label>
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-800">
+            <label className="text-xs text-zinc-500 shrink-0">Manual adjust:</label>
             <Input
               type="number"
               min={0}
@@ -556,24 +556,25 @@ export function LeadDetailCard({
       {/* AI Outreach */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="space-y-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Zap className="h-5 w-5 text-lime-400" />
               Outreach
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div className="relative">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                  className="w-full"
                 >
                   <FileText className="h-4 w-4" />
                   Templates
                   <ChevronDown className="h-3 w-3" />
                 </Button>
                 {showTemplateMenu && (
-                  <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full z-10 mt-1 w-56 rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
                     {OUTREACH_TEMPLATES.map((t) => (
                       <button
                         key={t.id}
@@ -594,21 +595,21 @@ export function LeadDetailCard({
                 size="sm"
                 onClick={handleGenerateOutreach}
                 disabled={generatingOutreach || generatingOpenClaw}
-                className="w-full sm:w-auto"
+                className="w-full"
               >
-                <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
-                {generatingOutreach ? "Generating..." : "Generate AI Outreach"}
+                <Zap className={`h-4 w-4 shrink-0 ${generatingOutreach ? "animate-pulse" : ""}`} />
+                <span className="truncate">{generatingOutreach ? "Generating..." : "AI Outreach"}</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleGenerateWithOpenClaw}
                 disabled={generatingOpenClaw || generatingOutreach}
-                className="w-full sm:w-auto"
+                className="w-full"
                 title="Generate outreach using the OpenClaw prompt"
               >
-                <Plug className={`h-4 w-4 ${generatingOpenClaw ? "animate-pulse" : ""}`} />
-                {generatingOpenClaw ? "OpenClaw working..." : "Generate with OpenClaw"}
+                <Plug className={`h-4 w-4 shrink-0 ${generatingOpenClaw ? "animate-pulse" : ""}`} />
+                <span className="truncate">{generatingOpenClaw ? "OpenClaw working..." : "OpenClaw"}</span>
               </Button>
             </div>
           </div>
@@ -773,16 +774,16 @@ export function LeadDetailCard({
       </Card>
 
       {/* Sticky mobile primary actions — three biggest jobs always one tap away */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800 bg-zinc-950/95 px-3 py-3 backdrop-blur pb-safe md:hidden">
-        <div className="flex gap-2">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800 bg-zinc-950/95 px-3 py-2 backdrop-blur pb-safe md:hidden" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+        <div className="grid grid-cols-3 gap-2">
           <Button
             onClick={handleEnrich}
             disabled={enriching}
             variant="outline"
             size="sm"
-            className="flex-1"
+            className="w-full text-xs"
           >
-            <RefreshCw className={`h-4 w-4 ${enriching ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 shrink-0 ${enriching ? "animate-spin" : ""}`} />
             Enrich
           </Button>
           <Button
@@ -790,18 +791,18 @@ export function LeadDetailCard({
             disabled={generatingOutreach}
             variant="outline"
             size="sm"
-            className="flex-1"
+            className="w-full text-xs"
           >
-            <Zap className={`h-4 w-4 ${generatingOutreach ? "animate-pulse" : ""}`} />
+            <Zap className={`h-3.5 w-3.5 shrink-0 ${generatingOutreach ? "animate-pulse" : ""}`} />
             Outreach
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving}
             size="sm"
-            className="flex-1"
+            className="w-full text-xs"
           >
-            <Save className="h-4 w-4" />
+            <Save className="h-3.5 w-3.5 shrink-0" />
             Save
           </Button>
         </div>
@@ -818,19 +819,19 @@ export function LeadDetailCard({
               {activityLog.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between border-b border-zinc-800/50 py-2 last:border-0"
+                  className="flex flex-col gap-1 border-b border-zinc-800/50 py-2 last:border-0 sm:flex-row sm:items-center sm:justify-between min-w-0"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-sm text-zinc-300 capitalize">
                       {entry.action.replace(/_/g, " ")}
                     </span>
                     {entry.details && (
-                      <span className="text-xs text-zinc-500 ml-2">
+                      <span className="text-xs text-zinc-500 ml-2 break-words">
                         {JSON.stringify(entry.details).slice(0, 80)}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-zinc-500 shrink-0">
                     {formatDate(entry.created_at)}
                   </span>
                 </div>
@@ -903,9 +904,9 @@ export function LeadDetailCard({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-medium uppercase text-zinc-500">{label}</p>
-      <p className="text-sm text-zinc-300">{value}</p>
+      <p className="text-sm text-zinc-300 break-words whitespace-normal">{value}</p>
     </div>
   );
 }
@@ -922,14 +923,14 @@ function ContactRow({
   copied: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between group">
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-zinc-500" />
-        <span className="text-sm text-zinc-300">{value}</span>
+    <div className="flex items-center justify-between gap-2 group min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <Icon className="h-4 w-4 text-zinc-500 shrink-0" />
+        <span className="text-sm text-zinc-300 break-all min-w-0">{value}</span>
       </div>
       <button
         onClick={onCopy}
-        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
       >
         {copied ? (
           <Check className="h-3.5 w-3.5 text-lime-400" />
@@ -1023,7 +1024,7 @@ function CopyableSection({
           )}
         </button>
       </div>
-      <p className="text-sm text-zinc-300 whitespace-pre-wrap">{content}</p>
+      <p className="text-sm text-zinc-300 whitespace-pre-wrap break-words max-w-full overflow-x-auto">{content}</p>
     </div>
   );
 }
