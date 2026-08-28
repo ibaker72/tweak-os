@@ -17,11 +17,13 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Paths reachable without an app session.
  *
- * /api/webhooks/* is deliberately public: those handlers are called by third
- * parties (Twilio) and authenticate with an HMAC signature instead of a
- * session cookie. Gating them here would 401 every inbound webhook.
+ * /api/webhooks/* and /api/cron/* are deliberately public: those handlers are
+ * invoked by machines, not people — Twilio with an HMAC signature, Vercel Cron
+ * with a bearer CRON_SECRET — and carry no session cookie. Gating them here
+ * would 401 every inbound webhook and every scheduled run. Each handler
+ * authenticates its own caller before doing anything.
  */
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/webhooks"];
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/webhooks", "/api/cron"];
 
 /** Routes only an admin may call. Route handlers re-check with requireAdmin(). */
 const ADMIN_ONLY_PREFIXES = ["/api/agents"];

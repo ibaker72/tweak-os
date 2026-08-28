@@ -177,6 +177,69 @@ Two things worth knowing:
 Deactivating an agent (`is_active = false`) revokes access immediately: the
 helper functions stop resolving them and every ownership predicate goes false.
 
+## The commission engine
+
+`src/lib/commissions/` turns cleared payments into ledger entries. It is the
+highest-risk code in the app, so the arithmetic is isolated from everything
+that touches a database:
+
+| File | Role |
+| --- | --- |
+| `calculate.ts` | **Pure.** No database, no clock, no network. All the money math |
+| `accrue.ts` | Loads state, calls the planner, writes what is missing |
+| `clawback.ts` | Refunds and chargebacks — reuses the same planner |
+| `balances.ts` | Read models: unpaid, payable-now, lifetime, per-deal |
+| `payouts.ts` | Batch open entries, stamp them, mark paid |
+
+The rules it implements:
+
+1. Commission accrues when a payment **clears**, never when a deal is signed.
+   A payment with `received_at` set and `cleared_at` null accrues nothing —
+   that gap is the refund window.
+2. `payable_at = cleared_at + 30 days` (Net 30).
+3. The rate applied is `deals.commission_rate_bps`, snapshotted at signing. The
+   agent's current default is not an input to the calculation at all.
+4. Milestone projects accrue per milestone as each clears.
+5. Recurring deals accrue one entry per cleared month, checked against
+   `recurring_cap_months` first. A null cap accrues indefinitely; a reached cap
+   writes nothing and records why.
+6. A refund writes a negative `clawback` entry. It never edits or deletes the
+   original — the ledger trigger refuses both. A clawback larger than the
+   balance carries negative against future earnings rather than clamping.
+7. Cents-only integer math, rounded half-up **once**, at the final step.
+
+### Why one planner handles both directions
+
+`planDealLedger` computes what the ledger *should* contain and returns the
+difference from what it does contain. Accrual and clawback are the same
+function because two code paths for "money in" and "money back" would
+eventually disagree about rounding, and that disagreement shows up as a cent
+nobody can account for.
+
+For one-time deals the total is always `rate x (net cleared basis)` and each
+entry is a step toward it. Three uneven milestones therefore sum to exactly the
+same total as one payment for the whole amount, and a full refund returns the
+balance to precisely zero — both fall out of the same arithmetic rather than
+being special-cased. (Naive per-payment rounding genuinely drifts: at 30%, a
+build split `[1, 1, 99998]` cents totals 29,999 instead of 30,000.)
+
+Idempotence has two independent layers: the planner only ever plans the
+difference, and a partial unique index on
+`commission_entries(payment_id) WHERE entry_type = 'earned'` makes a duplicate
+impossible even if two sweeps overlap.
+
+### Running it
+
+| Entry point | Auth | Use |
+| --- | --- | --- |
+| `POST /api/commissions/accrue` | Admin session | Manual sweep, or one deal via `deal_id` |
+| `GET /api/cron/commissions/accrue` | `Bearer $CRON_SECRET` | Nightly Vercel cron (07:00 UTC), 7-day lookback |
+
+The cron route is the second and last place the service-role client is allowed
+— it has no user to act as — and, like the Twilio webhook, it is exempt from
+the session gate because it authenticates on a shared secret instead.
+`route-coverage.test.ts` fails the build if either exemption spreads.
+
 ## Running locally
 
 Requires Node 20+.

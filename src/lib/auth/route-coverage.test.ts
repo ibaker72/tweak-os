@@ -28,11 +28,19 @@ function routeFiles(dir: string): string[] {
 const files = routeFiles(API_DIR);
 
 /**
- * Routes authenticated by something other than a session cookie. The Twilio
- * webhook verifies an HMAC signature and must stay reachable without a login,
- * which is also why it is the one place the service-role client is allowed.
+ * Routes authenticated by something other than a session cookie, because their
+ * caller is a machine with no session:
+ *
+ *   the Twilio webhook verifies an HMAC signature;
+ *   the nightly cron verifies a bearer CRON_SECRET.
+ *
+ * These are also the only two places the service-role client is allowed —
+ * there is no user to act as, so there is no RLS-bound client to use.
  */
-const PUBLIC_ROUTES = ["webhooks/twilio/sms/route.ts"];
+const PUBLIC_ROUTES = [
+  "webhooks/twilio/sms/route.ts",
+  "cron/commissions/accrue/route.ts",
+];
 
 const HANDLER_RE = /export\s+async\s+function\s+(GET|POST|PATCH|PUT|DELETE)\b/g;
 
@@ -82,7 +90,20 @@ describe("API route guard coverage", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("the service-role client is used only by webhooks", () => {
+  it("every public route authenticates its caller some other way", () => {
+    // Exempt from the session gate is not exempt from authentication. Each of
+    // these must verify a signature or a shared secret before doing anything.
+    for (const rel of PUBLIC_ROUTES) {
+      const src = readFileSync(path.join(API_DIR, rel), "utf8");
+      const authenticates =
+        src.includes("verifyTwilioSignature") ||
+        src.includes("timingSafeEqual") ||
+        src.includes("CRON_SECRET");
+      expect(authenticates, `${rel} has no caller authentication`).toBe(true);
+    }
+  });
+
+  it("the service-role client is used only by machine-authenticated routes", () => {
     const srcDir = path.resolve(__dirname, "../..");
     const users: string[] = [];
 
@@ -103,8 +124,9 @@ describe("API route guard coverage", () => {
     };
     walk(srcDir);
 
-    // The definition site plus the Twilio webhook, and nothing else.
+    // The definition site plus the two machine-authenticated routes.
     expect(users.sort()).toEqual([
+      "app/api/cron/commissions/accrue/route.ts",
       "app/api/webhooks/twilio/sms/route.ts",
       "lib/supabase/service.ts",
     ]);
