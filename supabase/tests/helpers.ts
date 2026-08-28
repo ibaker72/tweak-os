@@ -14,10 +14,47 @@ export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
 
 export const hasTestDatabase = TEST_DATABASE_URL.length > 0;
 
-export async function connect(): Promise<Client> {
-  const client = new Client({ connectionString: TEST_DATABASE_URL });
+/**
+ * Connect to a database dedicated to one test file.
+ *
+ * Each DB suite drops and rebuilds the whole `public` schema, so two of them
+ * sharing a database will corrupt each other whenever Vitest runs their files
+ * in parallel. Giving each suite its own database keeps them isolated without
+ * having to serialise the whole test run.
+ *
+ * Pass a short suite name; omit it to use the database named in the URL.
+ */
+export async function connect(suite?: string): Promise<Client> {
+  if (!suite) {
+    const client = new Client({ connectionString: TEST_DATABASE_URL });
+    await client.connect();
+    return client;
+  }
+
+  const url = new URL(TEST_DATABASE_URL);
+  const baseName = decodeURIComponent(url.pathname.replace(/^\//, "")) || "postgres";
+  const dbName = `${baseName}_${suite}`.replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 63);
+
+  // Create the per-suite database from a connection to the base one. FORCE
+  // (PG13+) evicts any connection left behind by an interrupted run.
+  const admin = new Client({ connectionString: TEST_DATABASE_URL });
+  await admin.connect();
+  try {
+    await admin.query(`drop database if exists ${quoteIdent(dbName)} with (force)`);
+    await admin.query(`create database ${quoteIdent(dbName)}`);
+  } finally {
+    await admin.end();
+  }
+
+  url.pathname = `/${dbName}`;
+  const client = new Client({ connectionString: url.toString() });
   await client.connect();
   return client;
+}
+
+/** Identifiers here are derived from our own config, but quote them anyway. */
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
 }
 
 /**

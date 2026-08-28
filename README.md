@@ -102,10 +102,52 @@ build if it appears anywhere else, or if any route handler is left unguarded.
 
 ### Core tables
 
-`leads` (~40 columns) is the center of the schema. Around it:
-`agent_profiles`, `outreach_sequences`, `outreach_templates`, `proposals`,
-`activity_log`, `import_jobs`, `enrichment_jobs`, `saved_searches`,
-`smart_lists`, `google_places_cache`.
+**Pipeline.** `leads` is a prospect. Around it: `agent_profiles`,
+`outreach_sequences`, `outreach_templates`, `proposals`, `activity_log`,
+`import_jobs`, `enrichment_jobs`, `saved_searches`, `smart_lists`,
+`google_places_cache`.
+
+**Revenue** (migration `00016_revenue_core.sql`). `leads` used to be prospect,
+contact, and customer at once, which breaks as soon as a client signs twice,
+upgrades, churns, or comes back. That is now split:
+
+```
+leads ──sourced──▶ accounts ──▶ deals ──▶ deal_milestones
+                                  │  └──▶ payments
+                                  ▼
+                       commission_entries ──▶ payout_batches
+```
+
+| Table | What it is |
+| --- | --- |
+| `accounts` | A business once it is a customer. `lead_id` records where it came from, nullable |
+| `deals` | One signed contract. Many per account |
+| `deal_milestones` | Stages for a project billed in parts |
+| `payments` | Money actually received |
+| `commission_entries` | Append-only ledger. The only truth about what an agent is owed |
+| `payout_batches` | One payout run to one agent |
+| `attributions` | Who gets credit for a lead, and until when |
+
+Four invariants this schema exists to hold:
+
+1. **The rate is snapshotted on the deal.** `deals.commission_rate_bps` is
+   captured at signing and a `CHECK` requires it once the deal leaves draft.
+   Changing an agent's `default_commission_rate_bps` never reprices history.
+2. **`received_at` and `cleared_at` are separate.** Commission accrues off
+   `cleared_at`; the gap between them is the refund and chargeback buffer.
+   Collapsing them would pay commission on money that can still reverse.
+3. **The ledger is append-only.** A trigger refuses every `DELETE` and every
+   `UPDATE` except one: attaching an unbatched entry to a payout batch
+   (`NULL` → value, once). Corrections are new reversing rows, never edits.
+   Clawbacks are negative `amount_cents`, and a `CHECK` keeps the sign and the
+   `entry_type` in agreement.
+4. **There is no balance column anywhere.** An agent's unpaid balance is
+   `SUM(amount_cents) WHERE payout_batch_id IS NULL`. A corrected balance with
+   no history behind it is an argument you cannot win with someone whose
+   income it is. A test asserts no `balance*` column exists.
+
+Internal agents and external referral partners are one table with a different
+`agent_profiles.partner_type` — one commission engine, not two.
 
 RLS is enabled on all 23 tables, with role- and ownership-aware policies
 (migration `00015_rls_role_scoping.sql`). No policy evaluates to a bare `true`.

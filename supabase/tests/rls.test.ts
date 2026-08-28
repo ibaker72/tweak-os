@@ -26,7 +26,7 @@ describeRls("RLS role scoping", () => {
   let ids: SeedIds;
 
   beforeAll(async () => {
-    client = await connect();
+    client = await connect("rls");
     await resetSchema(client);
     ids = await seed(client);
   }, 120_000);
@@ -511,24 +511,43 @@ describeRls("RLS role scoping", () => {
       expect(rows.map((r) => r.relname)).toEqual([]);
     });
 
-    it("the helper functions are security definer with a locked search_path", async () => {
+    it("every private helper pins its search_path", async () => {
       const { rows } = await client.query(`
-        select p.proname, p.prosecdef, p.proconfig
+        select p.proname, p.proconfig
         from pg_proc p
         join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'private'
         order by p.proname
       `);
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(
+          (row.proconfig as string[] | null)?.some((c) => c.startsWith("search_path=")),
+          `private.${row.proname} does not pin search_path`
+        ).toBe(true);
+      }
+    });
+
+    it("the identity and ownership helpers are security definer", async () => {
+      // These read tables the caller cannot read directly. That is the point:
+      // it is what lets an agent_profiles policy check the caller's role
+      // without selecting from agent_profiles and recursing.
+      const { rows } = await client.query(`
+        select p.proname, p.prosecdef
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'private'
+          and p.proname in ('current_agent_id', 'is_admin', 'owns_lead', 'can_read_deal')
+        order by p.proname
+      `);
       expect(rows.map((r) => r.proname)).toEqual([
+        "can_read_deal",
         "current_agent_id",
         "is_admin",
         "owns_lead",
       ]);
       for (const row of rows) {
-        expect(row.prosecdef).toBe(true);
-        expect(
-          (row.proconfig as string[]).some((c) => c.startsWith("search_path="))
-        ).toBe(true);
+        expect(row.prosecdef, `private.${row.proname} is not SECURITY DEFINER`).toBe(true);
       }
     });
   });
