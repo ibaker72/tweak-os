@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
-    const module = searchParams.get("module") as Module | null;
+    const moduleParam = searchParams.get("module") as Module | null;
     const limit = parseInt(searchParams.get("limit") || "20", 10);
 
     const activities = await getRecentActivity(supabase, {
-      module: module ?? undefined,
+      module: moduleParam ?? undefined,
       limit,
     });
 

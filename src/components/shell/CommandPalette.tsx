@@ -60,16 +60,24 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  useEffect(() => {
+  // Reset highlight/query as the palette's inputs change. Adjusting state
+  // during render (React's documented pattern) rather than in an effect avoids
+  // the cascading render an effect-based reset would cause.
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (prevQuery !== query) {
+    setPrevQuery(query);
     setSelectedIndex(0);
-  }, [query]);
+  }
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
     if (!isOpen) {
       setQuery("");
+      setPrevQuery("");
       setSelectedIndex(0);
     }
-  }, [isOpen]);
+  }
 
   function navigate(href: string) {
     setIsOpen(false);

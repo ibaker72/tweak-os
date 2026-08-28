@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -38,10 +38,14 @@ export function AppShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
+  // Close the mobile sidebar on route change. Adjusting state during render
+  // (React's documented pattern) rather than in an effect avoids the extra
+  // render pass an effect-based reset would cause.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setSidebarOpen(false);
-  }, [pathname]);
+  }
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => !prev);

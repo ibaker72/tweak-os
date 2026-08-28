@@ -679,7 +679,7 @@ export function LeadDetailCard({
                 </div>
               ) : (
                 <p className="text-sm text-zinc-500">
-                  Run enrichment or click "Generate AI Outreach" to create personalized outreach.
+                  Run enrichment or click &ldquo;Generate AI Outreach&rdquo; to create personalized outreach.
                 </p>
               )}
             </>
