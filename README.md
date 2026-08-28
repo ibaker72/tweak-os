@@ -297,6 +297,58 @@ The cron route is the second and last place the service-role client is allowed
 the session gate because it authenticates on a shared secret instead.
 `route-coverage.test.ts` fails the build if either exemption spreads.
 
+## Admin tools
+
+| Route | What it is |
+| --- | --- |
+| `/admin/commissions` | Every agent's balance, payout batching, mark-paid, manual entries |
+| `/admin/revenue` | MRR, new business by month, close rate by agent, commission load |
+| `/admin/team` | Rates, classification, payout details, book reassignment |
+| `/admin/attribution` | Conflict queue for leads more than one agent claims |
+
+The number `/admin/revenue` exists for is **commission as a share of collected
+revenue**. It is what tells you whether the structure is working, and no
+individual deal will ever show it — an uncapped recurring rate does its damage
+across the book, a month at a time.
+
+### The five settled decisions
+
+1. **Retainers cap at 6 months.** A $3,000/mo retainer pays $5,400 rather than
+   $32,400 over three years. Applied as the default inside
+   `convert_lead_to_account()`; an explicit cap still wins.
+2. **Split credit is not built, but the seam is open.** The ledger's unique key
+   is `(payment_id, agent_id)` rather than `payment_id` alone — a no-op with
+   one agent per deal, and it removes the painful half of the retrofit. The
+   double-pay guarantee is unchanged.
+3. **Self-sourced pays more than inbound.** `default_commission_rate_bps` is
+   the self-sourced rate; `inbound_commission_rate_bps` applies when an
+   explicit `inbound_assigned` attribution is on file. **Absent data keeps the
+   higher rate** — nothing creates attributions automatically and agents cannot
+   create leads, so a missing row must never quietly cut someone's pay.
+4. **`employment_classification`** is a three-state field
+   (`contractor_1099` / `employee_w2` / `unset`), not a decision baked into the
+   schema. Only the last four TIN digits are stored; the full number belongs
+   wherever the 1099 is filed.
+5. **Stripe is the payment source, and received is not cleared.**
+   `charge.succeeded` writes `received_at` and leaves `cleared_at` null. The
+   nightly sweep clears it after `PAYMENT_SETTLEMENT_DAYS` (default 7), and
+   never clears a payment that was refunded inside the window.
+
+### Rate changes apply to future deals only
+
+`deals.commission_rate_bps` is snapshotted at conversion and never repriced.
+`/admin/team` states this on screen whenever a rate is edited, naming the exact
+count of existing deals and the rates they carry, and the change is written to
+`activity_log` with both old and new values. A rate change discovered by an
+agent reading their own ledger is the worst possible way to find out.
+
+### Reassigning a book
+
+`reassign_agent_book()` moves open leads and active accounts. It deliberately
+does **not** touch `deals.closed_by_agent_id` or any `commission_entries` — the
+person who closed a deal closed it, and a reassignment that moved someone's
+ledger would be indistinguishable from taking it.
+
 ## Running locally
 
 Requires Node 20+.

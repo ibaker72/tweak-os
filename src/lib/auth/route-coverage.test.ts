@@ -39,6 +39,7 @@ const files = routeFiles(API_DIR);
  */
 const PUBLIC_ROUTES = [
   "webhooks/twilio/sms/route.ts",
+  "webhooks/stripe/route.ts",
   "cron/commissions/accrue/route.ts",
 ];
 
@@ -97,6 +98,7 @@ describe("API route guard coverage", () => {
       const src = readFileSync(path.join(API_DIR, rel), "utf8");
       const authenticates =
         src.includes("verifyTwilioSignature") ||
+        src.includes("verifyStripeSignature") ||
         src.includes("timingSafeEqual") ||
         src.includes("CRON_SECRET");
       expect(authenticates, `${rel} has no caller authentication`).toBe(true);
@@ -124,9 +126,11 @@ describe("API route guard coverage", () => {
     };
     walk(srcDir);
 
-    // The definition site plus the two machine-authenticated routes.
+    // The definition site plus the machine-authenticated routes, and nothing
+    // else. Each of these authenticates a caller that has no session.
     expect(users.sort()).toEqual([
       "app/api/cron/commissions/accrue/route.ts",
+      "app/api/webhooks/stripe/route.ts",
       "app/api/webhooks/twilio/sms/route.ts",
       "lib/supabase/service.ts",
     ]);

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  BarChart3,
+  GitBranch,
   TrendingUp,
   Wallet,
   Users,
@@ -57,14 +59,37 @@ interface ApiUsageProps {
   openai_cost?: number;
 }
 
+/**
+ * Admin-only navigation. Hidden from agents rather than shown and then
+ * redirected — a nav item that always bounces you is worse than no nav item.
+ * This is presentation only: the layout, the routes and RLS are what actually
+ * enforce it.
+ */
+const adminGroup: NavGroup = {
+  label: "ADMIN",
+  items: [
+    { label: "Commissions", href: "/admin/commissions", icon: Wallet },
+    { label: "Revenue", href: "/admin/revenue", icon: BarChart3 },
+    { label: "Team", href: "/admin/team", icon: Users },
+    { label: "Attribution", href: "/admin/attribution", icon: GitBranch },
+  ],
+};
+
 interface SidebarProps {
   apiUsage?: ApiUsageProps;
+  isAdmin?: boolean;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
 
-export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({
+  apiUsage,
+  isAdmin = false,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const pathname = usePathname();
+  const groups = isAdmin ? [...navGroups, adminGroup] : navGroups;
 
   const googleToday = apiUsage?.google_today ?? 847;
   const googleLimit = apiUsage?.google_limit ?? 10_000;
@@ -117,7 +142,7 @@ export function Sidebar({ apiUsage, mobileOpen = false, onMobileClose }: Sidebar
         />
 
         {/* Groups */}
-        {navGroups.map((group) => (
+        {groups.map((group) => (
           <div key={group.label} className="mt-6">
             <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
               {group.label}

@@ -24,6 +24,8 @@ interface AppShellProps {
   title?: string;
   breadcrumbs?: Breadcrumb[];
   apiUsage?: ApiUsage;
+  /** Shows the admin nav group. Presentation only; routes enforce their own access. */
+  isAdmin?: boolean;
   activities?: Activity[];
 }
 
@@ -32,6 +34,7 @@ export function AppShell({
   title,
   breadcrumbs,
   apiUsage,
+  isAdmin = false,
   activities = [],
 }: AppShellProps) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -59,6 +62,7 @@ export function AppShell({
     <ToastProvider>
     <div className="min-h-screen bg-zinc-950">
       <Sidebar
+        isAdmin={isAdmin}
         apiUsage={
           apiUsage
             ? {

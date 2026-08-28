@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sweepClearedPayments } from "@/lib/commissions/accrue";
 
@@ -23,6 +24,16 @@ export const maxDuration = 300;
 
 /** How far back each nightly run looks. Generous overlap is free here. */
 const LOOKBACK_DAYS = 7;
+
+/**
+ * How long a Stripe payment sits as received before it counts as cleared.
+ *
+ * This is the chargeback buffer. charge.succeeded means the money arrived, not
+ * that it is safe, so commission must not accrue until this window has passed.
+ * Raising it delays every agent's earnings; lowering it risks paying
+ * commission on money that later reverses.
+ */
+const SETTLEMENT_DAYS = Number.parseInt(process.env.PAYMENT_SETTLEMENT_DAYS ?? "7", 10);
 
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -49,7 +60,23 @@ export async function GET(request: NextRequest) {
   since.setUTCDate(since.getUTCDate() - LOOKBACK_DAYS);
 
   try {
-    const supabase = createServiceClient();
+    // Typed as the generic client: service.ts returns a narrowly-inferred
+    // shape because no generated Database type is wired up yet.
+    const supabase = createServiceClient() as unknown as SupabaseClient;
+
+    // Settle first, accrue second: a payment that clears on this run should
+    // produce its commission entry on the same run rather than waiting a day.
+    const { data: cleared, error: clearError } = await supabase.rpc(
+      "clear_settled_payments",
+      { p_settlement_days: Number.isFinite(SETTLEMENT_DAYS) ? SETTLEMENT_DAYS : 7 }
+    );
+
+    if (clearError) {
+      console.error("Settlement sweep failed:", clearError.message);
+    }
+
+    const clearedCount = Array.isArray(cleared) ? cleared.length : 0;
+
     const result = await sweepClearedPayments(supabase, {
       since: since.toISOString(),
       createdBy: null,
@@ -72,6 +99,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       swept_since: since.toISOString(),
+      settlement_days: SETTLEMENT_DAYS,
+      payments_cleared: clearedCount,
       deals_examined: result.dealsExamined,
       entries_written: result.entriesWritten,
       cents_written: result.centsWritten,
