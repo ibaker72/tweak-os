@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  TrendingUp,
+  Wallet,
   Users,
   Compass,
   Upload,
@@ -31,9 +33,16 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   {
+    label: "MY WORK",
+    items: [
+      { label: "My Queue", href: "/my/queue", icon: ClipboardList },
+      { label: "My Pipeline", href: "/my/pipeline", icon: TrendingUp },
+      { label: "My Commissions", href: "/my/commissions", icon: Wallet },
+    ],
+  },
+  {
     label: "OUTBOUND",
     items: [
-      { label: "Work Queue", href: "/leads/queue", icon: ClipboardList },
       { label: "Leads", href: "/leads", icon: Users },
       { label: "Proposals", href: "/proposals", icon: FileText },
       { label: "Discover", href: "/leads/discover", icon: Compass },

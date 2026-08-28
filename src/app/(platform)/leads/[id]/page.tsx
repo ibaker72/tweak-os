@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadDetailCard } from "@/components/dashboard/lead-detail-card";
 import { LeadDetailExtras } from "@/components/dashboard/lead-detail-extras";
 import { SmsPanel } from "@/components/dashboard/sms-panel";
+import { ConvertToAccount } from "@/components/leads/convert-to-account";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -45,6 +46,29 @@ export default async function LeadDetailPage({
     agents = [];
   }
 
+  // Has this lead already been converted? RLS scopes accounts to the caller,
+  // so an agent only sees an account they own.
+  let converted: { accountId: string; dealId: string | null } | null = null;
+  try {
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("id")
+      .eq("lead_id", id)
+      .limit(1)
+      .maybeSingle();
+    if (account) {
+      const { data: deal } = await supabase
+        .from("deals")
+        .select("id")
+        .eq("account_id", account.id)
+        .limit(1)
+        .maybeSingle();
+      converted = { accountId: account.id, dealId: deal?.id ?? null };
+    }
+  } catch {
+    converted = null;
+  }
+
   let smsMessages: SmsMessage[] = [];
   try {
     smsMessages = await getSmsMessagesForLead(supabase, id, 25);
@@ -67,6 +91,12 @@ export default async function LeadDetailPage({
       </DashboardHeader>
 
       <LeadDetailCard lead={lead} activityLog={activityLog} />
+
+      <ConvertToAccount
+        leadId={lead.id}
+        businessName={lead.business_name}
+        alreadyConverted={converted}
+      />
 
       <SmsPanel
         lead={lead}

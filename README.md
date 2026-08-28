@@ -177,6 +177,63 @@ Two things worth knowing:
 Deactivating an agent (`is_active = false`) revokes access immediately: the
 helper functions stop resolving them and every ownership predicate goes false.
 
+## Agent-facing surfaces
+
+| Route | What it is |
+| --- | --- |
+| `/my/queue` | The daily driver. Assigned leads, soonest action first. Keyboard-first and optimistic |
+| `/my/pipeline` | Their deals by stage, with earned and expected shown separately |
+| `/my/commissions` | The ledger, with CSV export |
+| `/leads/[id]` | Adds Convert to Account |
+
+**Scoped by RLS, not by a filter.** None of these queries carry an
+`assigned_to = me` clause. They come back scoped because the policies say so.
+`supabase/tests/agent-tools.test.ts` runs the *exact unscoped SQL* these pages
+issue, as two different agents, and asserts each one is scoped anyway — so a
+policy regression fails the build instead of leaking a teammate's rows.
+
+### /my/queue
+
+`j`/`k` move, `c` logs a call, `e` an email, `n` a note, `d` sets the next
+action, `s` advances the stage, `↵` opens the lead. Shortcuts are suppressed
+while a text field has focus. Every action writes to `activity_log`, and every
+action is optimistic — on failure the row is rolled back and the error shown,
+because an optimistic UI that leaves a failed write on screen is worse than no
+optimism at all.
+
+### /my/pipeline
+
+Earned and expected are separate columns and are never summed. **Earned** is
+what the ledger holds; **expected** is a forecast off the contract value that
+pays nothing until a payment clears. An uncapped retainer shows a per-month
+figure rather than a fabricated lifetime total, and a deal with no rate
+snapshot shows a dash rather than a guess.
+
+### Convert to Account
+
+Agents have SELECT-only on `accounts` and `deals` and keep it that way — direct
+INSERT would let an agent write their own `commission_rate_bps`. Conversion
+runs through `public.convert_lead_to_account()`, a `SECURITY DEFINER` function
+that reads the rate from the owning agent's profile server-side. **There is no
+rate parameter**, and that absence is the security property.
+
+It creates the account and a **draft** deal, resolves the winning attribution
+(admin override first, then earliest non-expired first touch), marks the lead
+won, and logs the conversion. An admin reviews the contract value and signs.
+Credit goes to the lead's owner, not to whoever clicked — so an admin
+converting on an agent's behalf does not take the commission.
+
+### Outreach
+
+Team `outreach_templates` stay admin-owned. An agent wanting different wording
+gets an `agent_template_overrides` row instead of editing the shared copy;
+`GET /api/outreach/overrides` returns each template already merged with the
+caller's override, alongside the team original so the UI can offer a revert.
+`outreach_sequences` is the send log — it now carries `template_id` and
+`activity_log_id`, tying a send to the template used and the activity row it
+produced. Follow-up reminders write `leads.next_action_date`, which is what
+puts the lead back at the top of the queue.
+
 ## The commission engine
 
 `src/lib/commissions/` turns cleared payments into ledger entries. It is the

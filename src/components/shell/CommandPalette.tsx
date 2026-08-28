@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   LayoutDashboard,
+  ClipboardList,
+  TrendingUp,
+  Wallet,
+  FileText,
   Search,
   Users,
   Compass,
@@ -20,7 +24,11 @@ interface CommandItem {
 }
 
 const commands: CommandItem[] = [
+  { label: "My Queue", href: "/my/queue", icon: ClipboardList },
+  { label: "My Pipeline", href: "/my/pipeline", icon: TrendingUp },
+  { label: "My Commissions", href: "/my/commissions", icon: Wallet },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Proposals", href: "/proposals", icon: FileText },
   { label: "Leads", href: "/leads", icon: Users },
   { label: "Discover", href: "/leads/discover", icon: Compass },
   { label: "Import", href: "/leads/import", icon: Upload },
