@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { parseCsvContent } from "@/lib/leads/csv";
 import {
   insertLead,
@@ -7,10 +6,14 @@ import {
   updateImportJob,
 } from "@/lib/leads/mutations";
 import { findDuplicateLeadForImport } from "@/lib/leads/queries";
+import { requireAdmin } from "@/lib/auth/guard";
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

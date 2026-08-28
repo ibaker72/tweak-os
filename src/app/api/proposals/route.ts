@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/proposals/sections";
 import type { ProposalSections } from "@/lib/proposals/types";
+import { requireUser } from "@/lib/auth/guard";
 
 const proposalSelect =
   "id, lead_id, audit_id, client_name, business_type, website_url, recipient_name, recipient_email, services_json, proposal_html, proposal_sections, proposal_text, pdf_url, total_one_time, total_monthly, status, sent_at, last_edited_at, created_at";
 
 // GET /api/proposals — list recent proposals, or load one proposal with ?id=<uuid>
 export async function GET(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const id = request.nextUrl.searchParams.get("id");
 
     if (id) {
@@ -85,6 +88,9 @@ const saveSchema = z.object({
 
 // POST /api/proposals — save (insert) or upsert a proposal explicitly
 export async function POST(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
     const input = saveSchema.parse(body);
@@ -103,6 +109,9 @@ export async function POST(request: NextRequest) {
 
     const row = {
       lead_id: input.lead_id ?? null,
+      // Ownership anchor for RLS: a proposal with no lead still belongs to
+      // whoever built it, and the insert policy requires this to be the caller.
+      created_by: guard.agent.id,
       client_name: input.client_name || null,
       business_type: input.business_type || null,
       website_url: input.website_url || null,
@@ -118,7 +127,7 @@ export async function POST(request: NextRequest) {
       last_edited_at: new Date().toISOString(),
     };
 
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     if (input.id) {
       const { data, error } = await supabase
         .from("proposals")
@@ -169,10 +178,13 @@ const patchSchema = z.object({
 
 // PATCH /api/proposals — update status of a proposal
 export async function PATCH(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
     const { id, ...updates } = patchSchema.parse(body);
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { error } = await supabase
       .from("proposals")
       .update(updates)

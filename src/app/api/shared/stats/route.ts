@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { getDashboardStats } from "@/lib/leads/queries";
 import { getRecentActivity } from "@/lib/shared/activity-logger";
 import { getOutreachStats } from "@/lib/leads/sequences";
 import { getAgentWorkload } from "@/lib/leads/assignment";
+import { requireUser } from "@/lib/auth/guard";
 
 // GET /api/shared/stats — dashboard stats for unified view
 export async function GET(_request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
 
     const [leadStats, recentActivity, outreachStats, agentStats] =
       await Promise.all([

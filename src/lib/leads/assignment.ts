@@ -30,7 +30,7 @@ export async function autoAssignRoundRobin(
 ): Promise<{ assignments: Record<string, string[]> }> {
   // Get active agents
   const { data: agents, error: agentsError } = await supabase
-    .from("agent_profiles")
+    .from("agent_directory")
     .select("id, display_name")
     .eq("is_active", true)
     .order("display_name");
@@ -69,7 +69,7 @@ export async function getAgentWorkload(
   supabase: SupabaseClient
 ): Promise<AgentWorkload[]> {
   const { data: agents, error: agentsError } = await supabase
-    .from("agent_profiles")
+    .from("agent_directory")
     .select("id, display_name")
     .eq("is_active", true);
 

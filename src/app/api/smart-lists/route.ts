@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { executeSmartList } from "@/lib/leads/smart-lists";
 import { z } from "zod";
+import { requireAdmin, requireUser } from "@/lib/auth/guard";
 
 const createSmartListSchema = z.object({
   name: z.string().min(1),
@@ -28,8 +28,11 @@ const updateSmartListSchema = z.object({
 
 // GET /api/smart-lists — list or execute a smart list
 export async function GET(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const execute = searchParams.get("execute");
@@ -78,8 +81,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/smart-lists — create smart list
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const validated = createSmartListSchema.parse(body);
 
@@ -102,8 +108,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/smart-lists — update smart list
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id, ...updates } = updateSmartListSchema.parse(body);
 
@@ -127,8 +136,11 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE /api/smart-lists — delete smart list
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id } = z.object({ id: z.string().uuid() }).parse(body);
 

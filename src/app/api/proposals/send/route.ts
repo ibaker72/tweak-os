@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
 import {
   renderProposalEmailBody,
   renderProposalDocumentHtml,
 } from "@/lib/proposals/render";
 import { slugifyClient } from "@/lib/proposals/sections";
 import type { ProposalSections } from "@/lib/proposals/types";
+import { requireUser } from "@/lib/auth/guard";
 
 export const maxDuration = 30;
 
@@ -100,6 +100,9 @@ async function sendViaResend(opts: {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   let input: z.infer<typeof inputSchema>;
   try {
     const body = await request.json();
@@ -197,7 +200,7 @@ export async function POST(request: NextRequest) {
   let proposalId = input.proposalId;
   if (!input.sendToOwnerOnly) {
     try {
-      const supabase = await createClient();
+      const supabase = guard.supabase;
       const fullHtml = renderProposalDocumentHtml({
         sections,
         clientName: input.clientName,
@@ -225,6 +228,7 @@ export async function POST(request: NextRequest) {
         const { data, error } = await supabase
           .from("proposals")
           .insert({
+            created_by: guard.agent.id,
             client_name: input.clientName,
             website_url: input.websiteUrl || null,
             recipient_name: input.recipientName || null,

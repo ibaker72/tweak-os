@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
 import { getLeadById } from "@/lib/leads/queries";
 import { enrichOneLead } from "@/lib/leads/enrich-flow";
 import { logActivity } from "@/lib/leads/mutations";
+import { requireAdmin } from "@/lib/auth/guard";
 
 const MAX_CONCURRENT = 2;
 const DELAY_MS = 1000;
@@ -15,8 +15,11 @@ const bulkSchema = z.object({
 
 // POST /api/enrich-bulk — enrich multiple leads
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const parsed = bulkSchema.safeParse(body);
     if (!parsed.success) {

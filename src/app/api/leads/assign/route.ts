@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { assignLeadsToAgent, autoAssignRoundRobin } from "@/lib/leads/assignment";
 import { logActivity } from "@/lib/leads/mutations";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth/guard";
 
 const assignSchema = z.union([
   z.object({
@@ -17,8 +17,11 @@ const assignSchema = z.union([
 
 // POST /api/leads/assign — assign leads to agent(s)
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const input = assignSchema.parse(body);
 

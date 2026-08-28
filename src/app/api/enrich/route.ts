@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { getLeadById } from "@/lib/leads/queries";
 import { enrichOneLead } from "@/lib/leads/enrich-flow";
 import {
@@ -7,10 +6,14 @@ import {
   updateEnrichmentJob,
   logActivity,
 } from "@/lib/leads/mutations";
+import { requireUser } from "@/lib/auth/guard";
 
 export async function POST(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { lead_id } = body;
 

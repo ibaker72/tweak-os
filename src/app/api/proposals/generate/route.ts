@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient } from "@/lib/supabase/server";
 import {
   PROPOSAL_SYSTEM_PROMPT,
   buildProposalUserPrompt,
@@ -12,6 +11,7 @@ import {
   sectionsToPlainText,
 } from "@/lib/proposals/sections";
 import type { ProposalService } from "@/lib/proposals/types";
+import { requireUser } from "@/lib/auth/guard";
 
 const PROPOSAL_MODEL = "claude-sonnet-4-20250514";
 const PROPOSAL_MAX_TOKENS = 2500;
@@ -44,6 +44,9 @@ function getAnthropic(): Anthropic {
 
 // POST /api/proposals/generate — stream proposal back; persist on completion
 export async function POST(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   let parsed;
   try {
     const body = await request.json();
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
     input.selected_services as ProposalService[]
   );
 
-  const supabase = await createClient();
+  const supabase = guard.supabase;
 
   const userPrompt = buildProposalUserPrompt({
     client_name: input.client_name,
@@ -111,6 +114,7 @@ export async function POST(request: NextRequest) {
           const plain = sectionsToPlainText(sections);
           await supabase.from("proposals").insert({
             lead_id: input.lead_id ?? null,
+            created_by: guard.agent.id,
             client_name: input.client_name || null,
             business_type: input.business_type || null,
             website_url: input.website_url || null,

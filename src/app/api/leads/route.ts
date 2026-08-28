@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { leadUpdateSchema, leadActionSchema } from "@/lib/validators/lead";
 import {
   deleteLeads,
@@ -15,6 +14,7 @@ import {
   logActivity,
 } from "@/lib/leads/mutations";
 import { z } from "zod";
+import { requireAdmin, requireUser } from "@/lib/auth/guard";
 
 // PATCH /api/leads — update a single lead, or perform an action on it.
 //
@@ -22,8 +22,11 @@ import { z } from "zod";
 //   1. { id, action: "archive" | "restore" | "soft_delete" | "mark_contacted" }
 //   2. { id, ...field updates }  (existing pattern, preserved for backward compat)
 export async function PATCH(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id, action, ...updates } = body;
 
@@ -116,8 +119,11 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/leads — soft delete leads by default; pass ?hard=true to
 // permanently remove them.
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { searchParams } = new URL(request.url);
     const hard = searchParams.get("hard") === "true";
     const body = await request.json();
@@ -155,8 +161,11 @@ export async function DELETE(request: NextRequest) {
 //   1. { ids, action: "archive" | "restore" | "soft_delete" | "mark_contacted" }
 //   2. { ids, lifecycle_status: "<status>" }  (existing pattern)
 export async function PUT(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { ids, action, lifecycle_status } = body;
 

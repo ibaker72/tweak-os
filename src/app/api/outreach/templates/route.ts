@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { requireAdmin, requireUser } from "@/lib/auth/guard";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1),
@@ -24,8 +24,11 @@ const updateTemplateSchema = z.object({
 
 // GET /api/outreach/templates — list all templates
 export async function GET() {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { data, error } = await supabase
       .from("outreach_templates")
       .select("*")
@@ -41,8 +44,11 @@ export async function GET() {
 
 // POST /api/outreach/templates — create template
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const validated = createTemplateSchema.parse(body);
 
@@ -65,8 +71,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/outreach/templates — update template
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id, ...updates } = updateTemplateSchema.parse(body);
 
@@ -90,8 +99,11 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE /api/outreach/templates — delete template
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id } = z.object({ id: z.string().uuid() }).parse(body);
 

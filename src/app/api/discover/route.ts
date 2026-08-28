@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { runDiscovery } from "@/lib/leads/discovery";
 import {
   createDiscoveryJob,
@@ -10,6 +9,7 @@ import {
 import { getDiscoveryResults } from "@/lib/leads/queries";
 import { trackApiUsage } from "@/lib/leads/api-usage";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth/guard";
 
 const discoveryInputSchema = z.object({
   niche: z.string().default(""),
@@ -27,8 +27,11 @@ const importSchema = z.object({
 
 // POST /api/discover — run discovery
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const input = discoveryInputSchema.parse(body);
 
@@ -125,8 +128,11 @@ function extractRootDomain(url: string): string | null {
 
 // PUT /api/discover — import selected discovery results into leads
 export async function PUT(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { result_ids } = importSchema.parse(body);
 

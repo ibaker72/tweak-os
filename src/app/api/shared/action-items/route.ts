@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/guard";
 
 interface ActionItem {
   id: string;
@@ -11,8 +11,11 @@ interface ActionItem {
 
 // GET /api/shared/action-items — compute cross-module action items
 export async function GET(_request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const items: ActionItem[] = [];
     const now = new Date();
     const threeDaysAgo = new Date(now);

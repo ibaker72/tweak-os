@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/guard";
 
 const ALLOWED_LIMITS = [10, 25, 50, 100] as const;
 
@@ -14,8 +14,11 @@ function parseLimit(raw: string | null, fallback = 50): number {
 // Supports ?limit=10|25|50|100 (default 50) for the hot-leads section, plus
 // an optional ?agent_id filter.
 export async function GET(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get("agent_id");
     const limit = parseLimit(searchParams.get("limit"), 50);

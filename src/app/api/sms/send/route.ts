@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/guard";
 import { getLeadById } from "@/lib/leads/queries";
 import { logActivity } from "@/lib/leads/mutations";
 import {
@@ -50,22 +50,15 @@ function enforceRateLimit(key: string): NextResponse | null {
 }
 
 export async function POST(request: NextRequest) {
+  // Must be a signed-in, active agent. RLS then scopes which leads they can
+  // actually message.
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
 
-    // --- Auth: must be a signed-in admin/agent user --------------------
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, status: "blocked", reason: "unauthenticated", message: "Sign in required" },
-        { status: 401 }
-      );
-    }
-
-    const limited = enforceRateLimit(rateLimitKey(request, user.id));
+    const limited = enforceRateLimit(rateLimitKey(request, guard.userId));
     if (limited) return limited;
 
     // --- Parse body ----------------------------------------------------

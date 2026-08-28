@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { getLeadById } from "@/lib/leads/queries";
 import { generateOutreach } from "@/lib/leads/outreach";
 import { updateLeadOutreach, logActivity } from "@/lib/leads/mutations";
 import { trackApiUsage } from "@/lib/leads/api-usage";
+import { requireUser } from "@/lib/auth/guard";
 
 // POST /api/outreach — generate AI outreach for a lead
 export async function POST(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { lead_id } = body;
 
@@ -53,8 +56,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/outreach — update outreach content for a lead
 export async function PATCH(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { lead_id, outreach } = body;
 

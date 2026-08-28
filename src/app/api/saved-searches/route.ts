@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import {
   createSavedSearch,
   deleteSavedSearch,
@@ -7,6 +6,7 @@ import {
 } from "@/lib/leads/mutations";
 import { getSavedSearches } from "@/lib/leads/queries";
 import { z } from "zod";
+import { requireAdmin, requireUser } from "@/lib/auth/guard";
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -19,8 +19,11 @@ const createSchema = z.object({
 
 // GET /api/saved-searches
 export async function GET() {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const searches = await getSavedSearches(supabase);
     return NextResponse.json({ searches });
   } catch (err) {
@@ -34,8 +37,11 @@ export async function GET() {
 
 // POST /api/saved-searches — create a saved search
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const data = createSchema.parse(body);
 
@@ -59,8 +65,11 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/saved-searches
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id } = body;
 

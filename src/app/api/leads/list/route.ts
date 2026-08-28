@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/guard";
 
 // GET /api/leads/list — lightweight lead list for picker dropdowns
 export async function GET(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const perPage = Math.min(
@@ -10,7 +13,7 @@ export async function GET(request: NextRequest) {
       500
     );
 
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { data, error } = await supabase
       .from("leads")
       .select("id, business_name, website, city, state")

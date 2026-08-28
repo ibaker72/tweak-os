@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/leads/mutations";
 
 export const runtime = "nodejs";
@@ -16,19 +16,14 @@ const updateBodySchema = z.object({
 // PATCH /api/sms/status — admin-only SMS status control for a lead.
 // Moving from opted_out to allowed requires confirm_opt_back_in=true.
 export async function PATCH(request: NextRequest) {
-  try {
-    const supabase = await createClient();
+  // This route documents itself as admin-only but previously accepted any
+  // signed-in user. Opting a lead back in after an opt-out is a compliance
+  // decision, so it is genuinely admin-only.
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, message: "Sign in required" },
-        { status: 401 }
-      );
-    }
+  try {
+    const supabase = guard.supabase;
 
     const json = await request.json().catch(() => null);
     if (!json) {

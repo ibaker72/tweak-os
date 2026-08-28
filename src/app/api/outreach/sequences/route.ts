@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import {
   createSequenceEntry,
   getSequenceForLead,
@@ -8,6 +7,7 @@ import {
   markSequenceReplied,
 } from "@/lib/leads/sequences";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth/guard";
 
 const createSequenceSchema = z.object({
   lead_id: z.string().uuid(),
@@ -27,8 +27,11 @@ const updateSequenceSchema = z.object({
 
 // GET /api/outreach/sequences — get sequences by lead_id or agent_id or due today
 export async function GET(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const { searchParams } = new URL(request.url);
     const leadId = searchParams.get("lead_id");
     const agentId = searchParams.get("agent_id");
@@ -64,8 +67,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/outreach/sequences — create a new sequence entry
 export async function POST(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const validated = createSequenceSchema.parse(body);
 
@@ -82,8 +88,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/outreach/sequences — update sequence status
 export async function PATCH(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const body = await request.json();
     const { id, status } = updateSequenceSchema.parse(body);
 

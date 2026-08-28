@@ -32,7 +32,7 @@ export default async function LeadsPage({
   let agents: { id: string; display_name: string }[] = [];
   try {
     const { data } = await supabase
-      .from("agent_profiles")
+      .from("agent_directory")
       .select("id, display_name")
       .eq("is_active", true)
       .order("display_name");

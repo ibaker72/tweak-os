@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { leadFilterSchema } from "@/lib/validators/lead";
 import { leadsToCSV } from "@/lib/leads/csv";
+import { requireUser } from "@/lib/auth/guard";
 
 export async function GET(request: NextRequest) {
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
+    const supabase = guard.supabase;
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
 
     const filters = leadFilterSchema.parse({

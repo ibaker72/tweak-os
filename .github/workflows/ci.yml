@@ -8,6 +8,28 @@ on:
 jobs:
   lint-test-build:
     runs-on: ubuntu-latest
+
+    # The RLS suite runs the real migrations against a real Postgres and
+    # asserts the policies from two different agent identities. Without this
+    # service the suite skips itself, which would make a broken policy look
+    # like a passing build.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rlstest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rlstest
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,6 +40,18 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Fail if the RLS suite did not actually run
+        run: |
+          # A skipped RLS suite passes silently; this makes that state loud.
+          npm test -- --reporter=json --outputFile=/tmp/vitest.json > /dev/null 2>&1 || true
+          node -e "
+            const r = require('/tmp/vitest.json');
+            const rls = r.testResults.filter(f => f.name.includes('rls.test.ts'));
+            if (rls.length === 0) { console.error('RLS suite not found'); process.exit(1); }
+            const ran = rls.some(f => f.assertionResults.some(a => a.status === 'passed'));
+            if (!ran) { console.error('RLS suite did not run — check TEST_DATABASE_URL'); process.exit(1); }
+            console.log('RLS suite ran:', rls[0].assertionResults.length, 'assertions');
+          "
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co

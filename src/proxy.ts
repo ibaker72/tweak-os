@@ -1,10 +1,46 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// ---------------------------------------------------------------------------
+// This file is the Next.js middleware. Next 16 renamed `middleware.ts` to
+// `proxy.ts`; both filenames are recognised, but having both present is a hard
+// build error ("Please use ./src/proxy.ts only"), so the session gate lives
+// here rather than in a second file.
+//
+// It runs on every request that the matcher below does not exclude, refreshes
+// the Supabase session cookie, and gates access. The gate is deny-by-default:
+// anything not explicitly listed as public requires a session. The previous
+// version allow-listed a handful of path prefixes, which meant /proposals was
+// reachable while signed out.
+// ---------------------------------------------------------------------------
+
+/**
+ * Paths reachable without an app session.
+ *
+ * /api/webhooks/* is deliberately public: those handlers are called by third
+ * parties (Twilio) and authenticate with an HMAC signature instead of a
+ * session cookie. Gating them here would 401 every inbound webhook.
+ */
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/webhooks"];
+
+/** Routes only an admin may call. Route handlers re-check with requireAdmin(). */
+const ADMIN_ONLY_PREFIXES = ["/api/agents"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const { pathname } = request.nextUrl;
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,69 +62,55 @@ export async function proxy(request: NextRequest) {
     }
   );
 
+  // Refreshes the session cookie as a side effect — must run before any
+  // early return that is meant to carry a refreshed session.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Public routes that don't require authentication
-  const isPublicRoute =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth");
-
-  // Redirect unauthenticated users to login for all protected routes
-  if (!user && !isPublicRoute) {
-    // Protect all app routes (dashboard, leads, settings, etc.)
-    const isAppRoute =
-      pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/leads") ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/smart-lists");
-
-    // Protect all API routes (except /api/auth/*)
-    const isProtectedApi =
-      pathname.startsWith("/api/") && !pathname.startsWith("/api/auth");
-
-    if (isAppRoute || isProtectedApi) {
-      if (isProtectedApi) {
-        return NextResponse.json(
-          { error: "Unauthorized" },
-          { status: 401 }
-        );
-      }
+  if (isPublicPath(pathname)) {
+    // Signed-in users have no business on the login page.
+    if (user && pathname.startsWith("/login")) {
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
+    return supabaseResponse;
   }
 
-  // Redirect authenticated users away from login
-  if (user && pathname.startsWith("/login")) {
+  // Deny by default: everything below this line requires a session.
+  if (!user) {
+    if (isApiPath(pathname)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  // RBAC: Admin-only API routes
-  const adminOnlyRoutes = [
-    "/api/agents",
-  ];
-
-  if (user && adminOnlyRoutes.some((r) => pathname.startsWith(r))) {
-    // Check if user has admin role via agent_profiles
+  // Coarse RBAC net in front of admin-only APIs. This is defence in depth:
+  // the route handlers call requireAdmin() themselves, and the RLS policies
+  // are the actual enforcement boundary.
+  if (ADMIN_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    // agent_profiles is keyed to auth.users by user_id. The previous version
+    // matched on `id`, which is the table's own primary key — it never found a
+    // row, and the check below then fell through and allowed the request.
     const { data: profile } = await supabase
       .from("agent_profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+      .select("role, is_active")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    // Allow if no agent_profiles table exists yet (fresh setup) or if admin
-    if (profile && profile.role !== "admin") {
-      if (request.method !== "GET") {
-        return NextResponse.json(
-          { error: "Forbidden: admin access required" },
-          { status: 403 }
-        );
-      }
+    // Fail closed: no profile, an inactive profile, or a non-admin role is
+    // refused. A missing profile is not a "fresh setup" to wave through.
+    const isAdmin = profile?.role === "admin" && profile?.is_active === true;
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden: admin access required" },
+        { status: 403 }
+      );
     }
   }
 
