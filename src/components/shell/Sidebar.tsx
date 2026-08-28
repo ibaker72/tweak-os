@@ -8,7 +8,6 @@ import {
   Users,
   Compass,
   Upload,
-  SearchCheck,
   FileText,
   Settings,
   X,
@@ -36,7 +35,6 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Work Queue", href: "/leads/queue", icon: ClipboardList },
       { label: "Leads", href: "/leads", icon: Users },
-      { label: "Research", href: "/research", icon: SearchCheck },
       { label: "Proposals", href: "/proposals", icon: FileText },
       { label: "Discover", href: "/leads/discover", icon: Compass },
       { label: "Import", href: "/leads/import", icon: Upload },

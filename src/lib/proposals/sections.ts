@@ -1,4 +1,3 @@
-import type { AuditJson } from "@/lib/audits/types";
 import {
   SECTION_ORDER,
   SECTION_TITLES,
@@ -100,40 +99,6 @@ function stripMarkdown(s: string): string {
 }
 
 // ============================================
-// Safety / credibility helpers
-// ============================================
-
-/**
- * Convert raw audit estimates into conservative, lawyer-friendly
- * language. Replaces hard claims like "losing exactly 85 leads/month"
- * with softer phrasing tied to the score bucket.
- */
-export function softenLeadLossClaim(
-  audit: Pick<AuditJson, "overall_score" | "opportunity_grade">
-): string {
-  const score = audit.overall_score ?? 50;
-  if (score < 50) {
-    return "strong opportunity to capture more local search demand";
-  }
-  if (score < 70) {
-    return "may be missing a meaningful number of local leads";
-  }
-  if (score < 85) {
-    return "room to convert more of the local search traffic the site already attracts";
-  }
-  return "smaller incremental gains in local visibility and conversion";
-}
-
-export function softenSummary(rawSummary: string | undefined): string {
-  if (!rawSummary) return "";
-  return rawSummary
-    .replace(/losing exactly \d+[^.]*/gi, "missing a meaningful number of local leads")
-    .replace(/losing \d+\+? leads\/?\s?(per\s)?(month|mo)/gi, "missing a meaningful number of local leads")
-    .replace(/guarantees? (top|first|#1|number one) ranking[^.]*/gi, "improves the odds of ranking well over time")
-    .replace(/will rank #?1/gi, "should rank competitively");
-}
-
-// ============================================
 // Default starter text — used before the LLM streams in OR if the user
 // opens the composer without generating a proposal at all.
 // ============================================
@@ -145,7 +110,6 @@ export interface DefaultSectionContext {
   selected_services: ProposalService[];
   totals: ProposalTotals;
   notes?: string;
-  audit?: AuditJson | null;
 }
 
 export function buildDefaultSections(
@@ -153,37 +117,19 @@ export function buildDefaultSections(
 ): ProposalSections {
   const name = ctx.client_name || "your business";
   const biz = ctx.business_type || "your industry";
-  const soft = ctx.audit ? softenLeadLossClaim(ctx.audit) : "strong opportunity to capture more local search demand";
-  const summary = softenSummary(ctx.audit?.summary) ||
-    `${name} has solid fundamentals in ${biz.toLowerCase()}, and there is a ${soft}.`;
+  const summary =
+    `${name} has solid fundamentals in ${biz.toLowerCase()}, and there is a strong opportunity to capture more local search demand.`;
 
-  const findings: string[] = [];
-  if (ctx.audit) {
-    if (ctx.audit.top_3_recommendations?.length) {
-      for (const rec of ctx.audit.top_3_recommendations) findings.push(rec);
-    }
-    if (ctx.audit.missing_pages?.length) {
-      findings.push(`Missing pages that buyers expect: ${ctx.audit.missing_pages.join(", ")}.`);
-    }
-    if (ctx.audit.missing_schema?.length) {
-      findings.push(`Missing structured data: ${ctx.audit.missing_schema.join(", ")} — this hurts local search visibility.`);
-    }
-    if (ctx.audit.gbp_issues?.length) {
-      findings.push(`Google Business Profile gaps: ${ctx.audit.gbp_issues.join(", ")}.`);
-    }
-    if (ctx.audit.competitor_gaps?.length) {
-      findings.push(`Competitor gaps you can take advantage of: ${ctx.audit.competitor_gaps.join(", ")}.`);
-    }
-  } else {
-    findings.push(`The current ${biz.toLowerCase()} sites we see in your area often miss a clear "get a quote" or "book service" call-to-action above the fold.`);
-    findings.push("Page speed and mobile usability are common drop-off points — small fixes here usually lift conversions noticeably.");
-    findings.push("Most local sites are under-optimized for the searches that actually drive calls and quote requests.");
-  }
+  const findings: string[] = [
+    `The current ${biz.toLowerCase()} sites we see in your area often miss a clear "get a quote" or "book service" call-to-action above the fold.`,
+    "Page speed and mobile usability are common drop-off points — small fixes here usually lift conversions noticeably.",
+    "Most local sites are under-optimized for the searches that actually drive calls and quote requests.",
+  ];
 
   const recommendation = buildRecommendation(ctx);
   const investment = buildInvestmentSummary(ctx);
   const whatsNext = [
-    "1. **Discovery call** — we walk through your goals, current numbers, and the audit findings together (30-45 min).",
+    "1. **Discovery call** — we walk through your goals, current numbers, and where the biggest wins are (30-45 min).",
     "2. **Build phase** — design, copy, and development on the scoped services. We share progress in a shared workspace so you can review as we go.",
     "3. **Launch & measure** — site goes live, tracking is verified, and we check in monthly to keep improving.",
   ].join("\n");

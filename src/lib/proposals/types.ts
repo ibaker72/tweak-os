@@ -26,7 +26,6 @@ export interface ProposalInput {
   website_url: string;
   selected_services: ProposalService[];
   notes: string;
-  audit_id?: string;
   lead_id?: string;
 }
 

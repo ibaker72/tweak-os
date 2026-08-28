@@ -21,7 +21,7 @@ const ROWS_BY_SECTION: Partial<Record<keyof ProposalSections, number>> = {
 
 const HINTS: Partial<Record<keyof ProposalSections, string>> = {
   executive_summary: "2-3 sentences. Use soft language — no exact lead counts.",
-  what_we_found: "Bulleted list of audit findings or common opportunities.",
+  what_we_found: "Bulleted list of the opportunities you identified.",
   our_recommendation: "Which services and why, tied to the findings above.",
   investment_summary: "Markdown table: | Service | Price | Billing |",
   what_happens_next: "Numbered steps: Discovery → Build → Launch.",

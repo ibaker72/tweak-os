@@ -92,7 +92,7 @@ const MUTED_STATUSES: ReadonlySet<ProposalStatus> = new Set([
 
 const DEFAULT_EMAIL_INTRO = (recipientName: string) => `Hey ${recipientName || "there"},
 
-I put together a quick website and local SEO plan for your business based on the audit we ran.
+I put together a quick website and local SEO plan for your business.
 
 The main opportunity I saw is that the current site could be doing a better job capturing more local search demand and turning visitors into calls or quote requests.
 
@@ -107,7 +107,6 @@ export function ProposalsPageInner() {
   const params = useSearchParams();
   const presetUrl = params.get("url") ?? "";
   const presetLeadId = params.get("lead_id") ?? undefined;
-  const presetAuditId = params.get("audit_id") ?? undefined;
   const proposalIdParam = params.get("id");
 
   const [clientName, setClientName] = useState("");
@@ -147,7 +146,7 @@ export function ProposalsPageInner() {
   const showToast = (msg: string, tone: ToastTone = "info") =>
     setToast({ msg, tone, open: true });
 
-  // Prefill client name from the URL if we landed here from the audit page.
+  // Prefill client name from the ?url= query param when one is present.
   useEffect(() => {
     if (presetUrl && !clientName) {
       try {
@@ -319,7 +318,6 @@ export function ProposalsPageInner() {
         selected_services: selectedServices,
         totals,
         notes,
-        audit: null,
       })
     );
   }
@@ -338,7 +336,6 @@ export function ProposalsPageInner() {
           website_url: websiteUrl,
           selected_services: selectedServices,
           notes,
-          audit_id: presetAuditId,
           lead_id: presetLeadId,
         }),
       });
@@ -377,7 +374,6 @@ export function ProposalsPageInner() {
           selected_services: selectedServices,
           totals,
           notes,
-          audit: null,
         });
         const merged: ProposalSections = { ...prev };
         for (const key of Object.keys(defaults) as (keyof ProposalSections)[]) {
@@ -425,7 +421,6 @@ export function ProposalsPageInner() {
           proposal_sections: sections,
           proposal_html: sectionsToMarkdown(sections),
           lead_id: presetLeadId,
-          audit_id: presetAuditId,
         }),
       });
       if (res.ok) {

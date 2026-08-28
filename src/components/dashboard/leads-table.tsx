@@ -5,11 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Lead, LifecycleStatus } from "@/lib/leads/types";
 import type { LeadView } from "@/lib/validators/lead";
-import type { OpportunityGrade } from "@/lib/audits/types";
 import {
   LifecycleStatusBadge,
 } from "./lead-status-badge";
-import { OpportunityGradeBadge } from "@/components/audit/OpportunityGradeBadge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -24,23 +22,15 @@ import {
   UserCircle,
 } from "lucide-react";
 
-interface AuditSummary {
-  id: string;
-  opportunity_grade: string | null;
-  overall_score: number | null;
-}
-
 interface LeadsTableProps {
   leads: Lead[];
   agents?: { id: string; display_name: string }[];
-  auditsByLeadId?: Record<string, AuditSummary>;
   view?: LeadView;
 }
 
 export function LeadsTable({
   leads,
   agents = [],
-  auditsByLeadId = {},
   view = "active",
 }: LeadsTableProps) {
   const router = useRouter();
@@ -316,9 +306,6 @@ export function LeadsTable({
                 <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
                   Score
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
-                  Opp Score
-                </th>
                 <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400 sm:px-4">
                   Location
                 </th>
@@ -379,15 +366,6 @@ export function LeadsTable({
                     onClick={() => router.push(`/leads/${lead.id}`)}
                   >
                     <ScoreIndicator score={lead.score} />
-                  </td>
-                  <td
-                    className="px-3 py-3 text-center sm:px-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <OppScoreCell
-                      lead={lead}
-                      audit={auditsByLeadId[lead.id]}
-                    />
                   </td>
                   <td
                     className="px-3 py-3 text-sm text-zinc-400 sm:px-4"
@@ -492,29 +470,3 @@ function ScoreIndicator({ score }: { score: number }) {
   );
 }
 
-function OppScoreCell({
-  lead,
-  audit,
-}: {
-  lead: Lead;
-  audit?: AuditSummary;
-}) {
-  if (audit?.opportunity_grade) {
-    const grade = audit.opportunity_grade as OpportunityGrade;
-    if (grade === "A+" || grade === "A" || grade === "B" || grade === "C") {
-      return <OpportunityGradeBadge grade={grade} size="sm" />;
-    }
-  }
-  if (lead.website) {
-    const href = `/research?url=${encodeURIComponent(lead.website)}&lead_id=${lead.id}`;
-    return (
-      <Link
-        href={href}
-        className="text-xs text-zinc-500 hover:text-lime-400 transition-colors"
-      >
-        Audit →
-      </Link>
-    );
-  }
-  return <span className="text-xs text-zinc-600">—</span>;
-}

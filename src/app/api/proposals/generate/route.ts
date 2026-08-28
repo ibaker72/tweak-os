@@ -11,7 +11,6 @@ import {
   parseSectionsFromMarkdown,
   sectionsToPlainText,
 } from "@/lib/proposals/sections";
-import type { AuditJson } from "@/lib/audits/types";
 import type { ProposalService } from "@/lib/proposals/types";
 
 const PROPOSAL_MODEL = "claude-sonnet-4-20250514";
@@ -29,7 +28,6 @@ const inputSchema = z.object({
   website_url: z.string().default(""),
   selected_services: z.array(serviceSchema).default([]),
   notes: z.string().default(""),
-  audit_id: z.string().uuid().optional(),
   lead_id: z.string().uuid().optional(),
 });
 
@@ -67,33 +65,14 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient();
 
-  // Look up audit if provided so we can pass findings into the prompt.
-  let audit: AuditJson | null = null;
-  if (input.audit_id) {
-    try {
-      const { data } = await supabase
-        .from("lead_audits")
-        .select("audit_json")
-        .eq("id", input.audit_id)
-        .maybeSingle();
-      if (data?.audit_json) audit = data.audit_json as AuditJson;
-    } catch {
-      audit = null;
-    }
-  }
-
-  const userPrompt = buildProposalUserPrompt(
-    {
-      client_name: input.client_name,
-      business_type: input.business_type,
-      website_url: input.website_url,
-      selected_services: input.selected_services as ProposalService[],
-      notes: input.notes,
-      audit_id: input.audit_id,
-      lead_id: input.lead_id,
-    },
-    audit
-  );
+  const userPrompt = buildProposalUserPrompt({
+    client_name: input.client_name,
+    business_type: input.business_type,
+    website_url: input.website_url,
+    selected_services: input.selected_services as ProposalService[],
+    notes: input.notes,
+    lead_id: input.lead_id,
+  });
 
   const encoder = new TextEncoder();
 
@@ -132,7 +111,6 @@ export async function POST(request: NextRequest) {
           const plain = sectionsToPlainText(sections);
           await supabase.from("proposals").insert({
             lead_id: input.lead_id ?? null,
-            audit_id: input.audit_id ?? null,
             client_name: input.client_name || null,
             business_type: input.business_type || null,
             website_url: input.website_url || null,

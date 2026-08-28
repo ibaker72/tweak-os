@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { getLeads } from "@/lib/leads/queries";
-import { getLatestAuditsByLeadIds, type LeadAuditSummary } from "@/lib/audits/queries";
 import { leadFilterSchema } from "@/lib/validators/lead";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadsTable } from "@/components/dashboard/leads-table";
@@ -42,28 +41,6 @@ export default async function LeadsPage({
     agents = [];
   }
 
-  // Fetch latest audit per lead so we can render the Opp Score column.
-  let auditsByLeadId = new Map<string, LeadAuditSummary>();
-  try {
-    auditsByLeadId = await getLatestAuditsByLeadIds(
-      supabase,
-      leads.map((l) => l.id)
-    );
-  } catch {
-    // Best-effort — table simply omits Opp Score badges on failure.
-  }
-  const auditsRecord: Record<
-    string,
-    { id: string; opportunity_grade: string | null; overall_score: number | null }
-  > = {};
-  for (const [leadId, summary] of auditsByLeadId) {
-    auditsRecord[leadId] = {
-      id: summary.id,
-      opportunity_grade: summary.opportunity_grade,
-      overall_score: summary.overall_score,
-    };
-  }
-
   // Build a paginator window of up to 7 pages around the current page.
   const windowSize = 7;
   const windowStart = Math.max(1, currentPage - Math.floor(windowSize / 2));
@@ -98,7 +75,6 @@ export default async function LeadsPage({
       <LeadsTable
         leads={leads}
         agents={agents}
-        auditsByLeadId={auditsRecord}
         view={filters.view}
       />
 

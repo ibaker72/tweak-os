@@ -81,7 +81,6 @@ const saveSchema = z.object({
   proposal_sections: sectionsSchema.optional(),
   proposal_html: z.string().default(""),
   lead_id: z.string().uuid().optional(),
-  audit_id: z.string().uuid().optional(),
 });
 
 // POST /api/proposals — save (insert) or upsert a proposal explicitly
@@ -104,7 +103,6 @@ export async function POST(request: NextRequest) {
 
     const row = {
       lead_id: input.lead_id ?? null,
-      audit_id: input.audit_id ?? null,
       client_name: input.client_name || null,
       business_type: input.business_type || null,
       website_url: input.website_url || null,

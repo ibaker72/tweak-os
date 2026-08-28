@@ -1,10 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getLeadById, getActivityLog } from "@/lib/leads/queries";
-import { getLatestAuditForLead } from "@/lib/audits/queries";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadDetailCard } from "@/components/dashboard/lead-detail-card";
 import { LeadDetailExtras } from "@/components/dashboard/lead-detail-extras";
-import { LeadAuditTab } from "@/components/audit/LeadAuditTab";
 import { SmsPanel } from "@/components/dashboard/sms-panel";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
@@ -32,13 +30,6 @@ export default async function LeadDetailPage({
     activityLog = await getActivityLog(supabase, id);
   } catch {
     activityLog = [];
-  }
-
-  let latestAudit: Awaited<ReturnType<typeof getLatestAuditForLead>> = null;
-  try {
-    latestAudit = await getLatestAuditForLead(supabase, id, lead.website);
-  } catch {
-    latestAudit = null;
   }
 
   // Fetch agents for assignment dropdown
@@ -76,12 +67,6 @@ export default async function LeadDetailPage({
       </DashboardHeader>
 
       <LeadDetailCard lead={lead} activityLog={activityLog} />
-
-      <LeadAuditTab
-        leadId={lead.id}
-        website={lead.website}
-        audit={latestAudit}
-      />
 
       <SmsPanel
         lead={lead}

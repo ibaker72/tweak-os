@@ -1,7 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ProposalInput, ProposalService } from "./types";
-import type { AuditJson } from "@/lib/audits/types";
-import { softenLeadLossClaim, softenSummary } from "./sections";
 
 const PROPOSAL_MODEL = "claude-sonnet-4-20250514";
 const PROPOSAL_MAX_TOKENS = 2500;
@@ -41,10 +39,7 @@ function formatMoney(n: number): string {
   return `$${n.toLocaleString("en-US")}`;
 }
 
-export function buildProposalUserPrompt(
-  input: ProposalInput,
-  audit: AuditJson | null
-): string {
+export function buildProposalUserPrompt(input: ProposalInput): string {
   const { total_one_time, total_monthly } = calculateTotals(input.selected_services);
   const services = input.selected_services
     .map(
@@ -54,22 +49,6 @@ export function buildProposalUserPrompt(
         })`
     )
     .join("\n");
-
-  const auditSection = audit
-    ? [
-        "",
-        "AUDIT FINDINGS:",
-        `- Overall score: ${audit.overall_score}/100 (Grade ${audit.opportunity_grade})`,
-        `- SEO: ${audit.seo_score}, Speed: ${audit.speed_score}, Mobile: ${audit.mobile_score}, Conversion: ${audit.conversion_score}`,
-        `- Missing pages: ${audit.missing_pages.join(", ") || "(none)"}`,
-        `- Missing schema: ${audit.missing_schema.join(", ") || "(none)"}`,
-        `- GBP issues: ${audit.gbp_issues.join(", ") || "(none)"}`,
-        `- Competitor gaps: ${audit.competitor_gaps.join(", ") || "(none)"}`,
-        `- Top recommendations: ${audit.top_3_recommendations.join("; ") || "(none)"}`,
-        `- Opportunity framing (use this phrasing, do NOT cite exact lead numbers): "${softenLeadLossClaim(audit)}"`,
-        `- Softened summary: ${softenSummary(audit.summary)}`,
-      ].join("\n")
-    : "";
 
   return `CLIENT INFO:
 - Client name: ${input.client_name || "(unspecified)"}
@@ -85,17 +64,15 @@ TOTALS:
 
 NOTES FROM SALES AGENT:
 ${input.notes || "(none)"}
-${auditSection}
 
 Generate a professional proposal with exactly these 7 sections.
 Use markdown formatting with ## for section headers.
 
 ## Executive Summary
-2-3 sentences. Personalized to their business and situation. Use the softened opportunity framing above — DO NOT invent exact lead numbers.
+2-3 sentences. Personalized to their business and situation. DO NOT invent exact lead numbers or traffic figures.
 
 ## What We Found
-If audit data provided: 3-5 bullet points of the top issues found, each tied to an action.
-If no audit: 3 general bullets about common problems for their business type.
+3-5 bullet points on the problems this business type commonly has, each tied to an action, informed by the sales agent's notes above.
 Use conservative language — "may be", "appears to be", "opportunity to" — never absolute claims.
 
 ## Our Recommendation
@@ -119,11 +96,10 @@ Leave this section empty or include 1-2 lines pulled from the sales agent's note
 }
 
 export async function streamProposal(
-  input: ProposalInput,
-  audit: AuditJson | null
+  input: ProposalInput
 ): Promise<ReadableStream<Uint8Array>> {
   const client = getClient();
-  const userPrompt = buildProposalUserPrompt(input, audit);
+  const userPrompt = buildProposalUserPrompt(input);
 
   const encoder = new TextEncoder();
 

@@ -27,7 +27,7 @@ interface LeadActionMenuProps {
   leadId: string;
   /** Show "Restore" instead of "Archive" / "Delete" — used in Archived view. */
   showRestore?: boolean;
-  /** Hide "Generate Proposal" if there's no website to audit/propose against. */
+  /** Hide "Generate Proposal" if there's no website to propose against. */
   hasWebsite?: boolean;
   /** Hide "Mark Contacted" if the lead is already contacted. */
   alreadyContacted?: boolean;
