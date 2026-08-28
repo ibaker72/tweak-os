@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDashboardStats } from "@/lib/leads/queries";
-import { getGrowthDashboardStats } from "@/lib/growth/analytics";
 import { getRecentActivity } from "@/lib/shared/activity-logger";
 import { getOutreachStats } from "@/lib/leads/sequences";
 import { getAgentWorkload } from "@/lib/leads/assignment";
@@ -11,10 +10,9 @@ export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    const [leadStats, growthStats, recentActivity, outreachStats, agentStats] =
+    const [leadStats, recentActivity, outreachStats, agentStats] =
       await Promise.all([
         getDashboardStats(supabase),
-        getGrowthDashboardStats(supabase),
         getRecentActivity(supabase, { limit: 10 }),
         getOutreachStats(supabase).catch(() => ({
           sent: 0,
@@ -36,7 +34,7 @@ export async function GET(_request: NextRequest) {
         : 0;
 
     // Pipeline velocity: average days between lifecycle transitions
-    let pipelineVelocity = {
+    const pipelineVelocity = {
       new_to_contacted: 0,
       contacted_to_replied: 0,
       replied_to_booked: 0,
@@ -67,7 +65,6 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json({
       leads: leadStats,
-      growth: growthStats,
       recent_activity: recentActivity,
       outreach_stats: {
         ...outreachStats,

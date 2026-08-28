@@ -5,10 +5,6 @@ export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const { pathname } = request.nextUrl;
-
-if (pathname.startsWith("/api/v1/openclaw/")) {
-  return NextResponse.next();
-}
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,11 +37,10 @@ if (pathname.startsWith("/api/v1/openclaw/")) {
 
   // Redirect unauthenticated users to login for all protected routes
   if (!user && !isPublicRoute) {
-    // Protect all app routes (dashboard, leads, growth, settings, etc.)
+    // Protect all app routes (dashboard, leads, settings, etc.)
     const isAppRoute =
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/leads") ||
-      pathname.startsWith("/growth") ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/smart-lists");
 

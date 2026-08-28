@@ -34,7 +34,6 @@ import {
   FileText,
   ChevronDown,
   X,
-  Plug,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import {
@@ -69,7 +68,6 @@ export function LeadDetailCard({
   const [saving, setSaving] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
-  const [generatingOpenClaw, setGeneratingOpenClaw] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<{ subject?: string; body: string } | null>(null);
@@ -129,32 +127,6 @@ export function LeadDetailCard({
       console.error("Outreach error:", err);
     } finally {
       setGeneratingOutreach(false);
-    }
-  }
-
-  async function handleGenerateWithOpenClaw() {
-    setGeneratingOpenClaw(true);
-    try {
-      const res = await fetch("/api/openclaw/generate-outreach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lead_id: lead.id,
-          tone: "professional",
-          offer: "New Business Launch Kit",
-          channel: "email_sms_call",
-        }),
-      });
-      if (res.ok) {
-        router.refresh();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        console.error("OpenClaw outreach error:", data);
-      }
-    } catch (err) {
-      console.error("OpenClaw outreach error:", err);
-    } finally {
-      setGeneratingOpenClaw(false);
     }
   }
 
@@ -594,22 +566,11 @@ export function LeadDetailCard({
                 variant="outline"
                 size="sm"
                 onClick={handleGenerateOutreach}
-                disabled={generatingOutreach || generatingOpenClaw}
+                disabled={generatingOutreach}
                 className="w-full"
               >
                 <Zap className={`h-4 w-4 shrink-0 ${generatingOutreach ? "animate-pulse" : ""}`} />
                 <span className="truncate">{generatingOutreach ? "Generating..." : "AI Outreach"}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateWithOpenClaw}
-                disabled={generatingOpenClaw || generatingOutreach}
-                className="w-full"
-                title="Generate outreach using the OpenClaw prompt"
-              >
-                <Plug className={`h-4 w-4 shrink-0 ${generatingOpenClaw ? "animate-pulse" : ""}`} />
-                <span className="truncate">{generatingOpenClaw ? "OpenClaw working..." : "OpenClaw"}</span>
               </Button>
             </div>
           </div>

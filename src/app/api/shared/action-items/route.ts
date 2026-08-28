@@ -17,8 +17,6 @@ export async function GET(_request: NextRequest) {
     const now = new Date();
     const threeDaysAgo = new Date(now);
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     // 1. Hot leads (score >= 70) not yet contacted
     const { count: hotLeadsCount } = await supabase
@@ -54,57 +52,7 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    // 3. Drafts stuck in "review" for 3+ days
-    const { count: reviewCount } = await supabase
-      .from("growth_drafts")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "review")
-      .lt("updated_at", threeDaysAgo.toISOString());
-
-    if (reviewCount && reviewCount > 0) {
-      items.push({
-        id: "overdue-review",
-        label: `${reviewCount} draft${reviewCount !== 1 ? "s" : ""} overdue for review`,
-        href: "/growth/pipeline?stage=review",
-        priority: "medium",
-        count: reviewCount,
-      });
-    }
-
-    // 4. Drafts stuck in "draft" status for 7+ days
-    const { count: staleDraftCount } = await supabase
-      .from("growth_drafts")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "draft")
-      .lt("updated_at", sevenDaysAgo.toISOString());
-
-    if (staleDraftCount && staleDraftCount > 0) {
-      items.push({
-        id: "stale-drafts",
-        label: `${staleDraftCount} stale draft${staleDraftCount !== 1 ? "s" : ""} need${staleDraftCount === 1 ? "s" : ""} attention`,
-        href: "/growth/drafts",
-        priority: "medium",
-        count: staleDraftCount,
-      });
-    }
-
-    // 5. Approved/scheduled drafts ready to publish
-    const { count: readyCount } = await supabase
-      .from("growth_drafts")
-      .select("*", { count: "exact", head: true })
-      .in("status", ["approved", "scheduled"]);
-
-    if (readyCount && readyCount > 0) {
-      items.push({
-        id: "ready-publish",
-        label: `${readyCount} article${readyCount !== 1 ? "s" : ""} ready to publish`,
-        href: "/growth/publish-queue",
-        priority: "low",
-        count: readyCount,
-      });
-    }
-
-    // 6. Pending enrichments (leads with enrichment_status = 'pending' and a website)
+    // 3. Pending enrichments (leads with enrichment_status = 'pending' and a website)
     const { count: pendingEnrichCount } = await supabase
       .from("leads")
       .select("*", { count: "exact", head: true })
@@ -121,7 +69,7 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    // 7. Leads with next_action_date that is today or past
+    // 4. Leads with next_action_date that is today or past
     const today = now.toISOString().split("T")[0];
     const { count: nextActionCount } = await supabase
       .from("leads")
@@ -139,7 +87,7 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    // 8. Outreach sequences scheduled for today
+    // 5. Outreach sequences scheduled for today
     const { count: dueSequenceCount } = await supabase
       .from("outreach_sequences")
       .select("*", { count: "exact", head: true })
@@ -157,7 +105,7 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    // 9. Leads assigned with no activity in 5+ days
+    // 6. Leads assigned with no activity in 5+ days
     const fiveDaysAgo = new Date(now);
     fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
     const { count: staleAssignedCount } = await supabase

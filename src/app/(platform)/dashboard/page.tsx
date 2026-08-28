@@ -65,14 +65,6 @@ interface DashboardData {
       google_places_cost: number;
     };
   };
-  growth: {
-    total_published: number;
-    total_impressions: number;
-    total_clicks: number;
-    avg_position: number;
-    pipeline_count: number;
-    conversion_count: number;
-  };
   outreach_stats?: OutreachStats;
   agent_stats?: AgentStat[];
   pipeline_velocity?: {
@@ -116,7 +108,6 @@ export default function UnifiedDashboardPage() {
   }
 
   const leads = data?.leads;
-  const growth = data?.growth;
   const activity = data?.recent_activity ?? [];
   const recentLeads = leads?.recent_leads ?? [];
   const outreach = data?.outreach_stats;
@@ -206,29 +197,6 @@ export default function UnifiedDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Inbound Pipeline */}
-          <Card>
-            <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
-              <CardTitle className="flex items-center gap-2 text-sm font-medium text-zinc-400">
-                <TrendingUp className="h-4 w-4 text-blue-500" />
-                Inbound Pipeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-                <MetricBlock label="Published" value={growth?.total_published ?? 0} />
-                <MetricBlock label="In Pipeline" value={growth?.pipeline_count ?? 0} />
-                <MetricBlock label="Clicks (Month)" value={growth?.total_clicks ?? 0} />
-                <MetricBlock label="Conversions" value={growth?.conversion_count ?? 0} valueClass="text-lime-400" />
-              </div>
-              <div className="mt-4 border-t border-zinc-800 pt-4">
-                <Link href="/growth" className="text-sm text-lime-400 transition-colors hover:text-lime-300">
-                  View growth engine →
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Outreach Stats */}
           <Card>
             <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
@@ -276,7 +244,7 @@ export default function UnifiedDashboardPage() {
                 <div className="space-y-3">
                   {activity.slice(0, 10).map((item) => (
                     <div key={item.id} className="flex items-start gap-3">
-                      <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.module === "leads" ? "bg-lime-400" : item.module === "growth" ? "bg-blue-500" : "bg-zinc-500"}`} />
+                      <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.module === "leads" ? "bg-lime-400" : "bg-zinc-500"}`} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-zinc-300">{item.action}</p>
                         <p className="text-xs text-zinc-500">{formatDate(item.created_at)}</p>
@@ -307,18 +275,6 @@ export default function UnifiedDashboardPage() {
                   <Button variant="outline" size="sm" className="w-full justify-start">
                     <Compass className="h-4 w-4" />
                     Find Leads
-                  </Button>
-                </Link>
-                <Link href="/growth/opportunities">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Search className="h-4 w-4" />
-                    <span className="hidden sm:inline">Find </span>Opportunities
-                  </Button>
-                </Link>
-                <Link href="/growth/drafts/new">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <FileText className="h-4 w-4" />
-                    New Draft
                   </Button>
                 </Link>
                 <Link href="/leads/import">

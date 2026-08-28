@@ -5,15 +5,10 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   LayoutDashboard,
+  Search,
   Users,
   Compass,
   Upload,
-  TrendingUp,
-  Search,
-  LayoutList,
-  Calendar,
-  FileText,
-  BarChart3,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,12 +24,6 @@ const commands: CommandItem[] = [
   { label: "Leads", href: "/leads", icon: Users },
   { label: "Discover", href: "/leads/discover", icon: Compass },
   { label: "Import", href: "/leads/import", icon: Upload },
-  { label: "Growth", href: "/growth", icon: TrendingUp },
-  { label: "Opportunities", href: "/growth/opportunities", icon: Search },
-  { label: "Pipeline", href: "/growth/pipeline", icon: LayoutList },
-  { label: "Calendar", href: "/growth/calendar", icon: Calendar },
-  { label: "Drafts", href: "/growth/drafts", icon: FileText },
-  { label: "Analytics", href: "/growth/analytics", icon: BarChart3 },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
