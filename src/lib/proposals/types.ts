@@ -12,13 +12,48 @@ export type ProposalStatus =
   | "obsolete"
   | "archived";
 
+/**
+ * Billing mode used by the pre-2026 proposal catalog, where every line
+ * item carried exactly one price and one billing mode. Retained because
+ * historical `services_json` rows still use it — see
+ * `normalizeService` in ./services.
+ */
 export type Billing = "one-time" | "monthly";
 
+/**
+ * A single line of scope on a proposal.
+ *
+ * A line may carry a one-time amount, a monthly amount, both, or neither
+ * (an agent can add the scope first and price it later). Amounts are
+ * whole-dollar numbers — the same convention the `proposals` table has
+ * always used for `services_json`, `total_one_time` and `total_monthly`.
+ */
 export interface ProposalService {
+  /** Catalog id when the line started from a catalog template. */
+  id?: string;
   name: string;
-  price: number;
-  billing: Billing;
+  /** Optional short scope note shown to the client and fed to the generator. */
+  description?: string;
+  one_time_price?: number;
+  monthly_price?: number;
 }
+
+/**
+ * The shape written by the legacy fixed-package catalog. Old proposal
+ * rows still hold these, so everything that reads `services_json` goes
+ * through `normalizeService`/`normalizeServices` first.
+ */
+export interface LegacyProposalService {
+  name: string;
+  price?: number;
+  billing?: Billing;
+  description?: string;
+  /** Some legacy items carried a second recurring amount alongside the first. */
+  secondary?: { price: number; billing: Billing };
+}
+
+/** Anything that may legitimately appear inside a stored `services_json`. */
+export type StoredProposalService = ProposalService | LegacyProposalService;
 
 export interface ProposalInput {
   client_name: string;
@@ -78,7 +113,8 @@ export interface Proposal {
   website_url?: string | null;
   recipient_name?: string | null;
   recipient_email?: string | null;
-  services_json: ProposalService[] | null;
+  /** May hold either the current or the legacy line shape — normalize on read. */
+  services_json: StoredProposalService[] | null;
   proposal_html: string | null;
   proposal_sections?: Partial<ProposalSections> | null;
   proposal_text?: string | null;
@@ -92,134 +128,179 @@ export interface Proposal {
   created_at: string;
 }
 
+// ============================================
+// Service catalog
+//
+// The catalog is a set of *scope templates*, not a price list. Selecting
+// an item seeds a proposal line with its name and (where we have one) a
+// suggested starting amount; the agent edits the one-time price, the
+// monthly price and the scope note before anything is generated or sent.
+// Nothing here is a locked customer price.
+// ============================================
+
 export interface ServiceCatalogItem {
   id: string;
   name: string;
-  price: number;
-  billing: Billing;
-  /** Optional secondary recurring price (e.g. Premium Growth has both) */
-  secondary?: { price: number; billing: Billing };
   group: ServiceGroup;
-  label: string;
+  /** Internal starting point for the one-time amount. Always editable. */
+  suggested_one_time?: number;
+  /** Internal starting point for the monthly amount. Always editable. */
+  suggested_monthly?: number;
+  /** Placeholder copy for the scope note field. Never auto-filled. */
+  scope_hint?: string;
 }
 
-export type ServiceGroup = "websites" | "marketing" | "addons";
+export type ServiceGroup =
+  | "websites"
+  | "marketing"
+  | "media"
+  | "custom"
+  | "addons";
 
 export const SERVICE_GROUPS: { id: ServiceGroup; label: string }[] = [
   { id: "websites", label: "Websites" },
   { id: "marketing", label: "Marketing & Ads" },
-  { id: "addons", label: "Add-ons" },
+  { id: "media", label: "Drone & Media" },
+  { id: "custom", label: "Custom Development" },
+  { id: "addons", label: "Add-Ons" },
 ];
 
 export const SERVICE_CATALOG: ServiceCatalogItem[] = [
-  // Websites
+  // --- Websites ---
   {
-    id: "new-business-launch-kit",
-    name: "New Business Launch Kit",
-    price: 2500,
-    billing: "one-time",
+    id: "new-business-launch",
+    name: "New Business Launch",
     group: "websites",
-    label: "New Business Launch Kit — $2,500 one-time",
+    suggested_one_time: 2500,
+    scope_hint:
+      "Core pages, brand basics, lead form, Google Business Profile, launch support.",
   },
   {
-    id: "foundation-website",
-    name: "Foundation Website",
-    price: 3500,
-    billing: "one-time",
+    id: "custom-business-website",
+    name: "Custom Business Website",
     group: "websites",
-    label: "Foundation Website — $3,500 one-time",
+    suggested_one_time: 3500,
+    scope_hint:
+      "Custom design, service pages, lead capture, analytics, mobile optimization.",
   },
   {
-    id: "growth-website-system",
-    name: "Growth Website System",
-    price: 6500,
-    billing: "one-time",
+    id: "local-growth-system",
+    name: "Local Growth System",
     group: "websites",
-    label: "Growth Website System — $6,500 one-time",
+    suggested_one_time: 6500,
+    scope_hint:
+      "Full site build, service-area architecture, local SEO foundation, conversion tracking.",
   },
+  // --- Marketing & Ads ---
   {
-    id: "premium-growth-package",
-    name: "Premium Growth Package",
-    price: 8500,
-    billing: "one-time",
-    secondary: { price: 800, billing: "monthly" },
-    group: "websites",
-    label: "Premium Growth Package — $8,500 + $800/mo",
-  },
-  {
-    id: "dealership-website-system",
-    name: "Dealership Website System",
-    price: 8500,
-    billing: "one-time",
-    secondary: { price: 600, billing: "monthly" },
-    group: "websites",
-    label: "Dealership Website System — $8,500 + $600/mo",
-  },
-  // Marketing & Ads
-  {
-    id: "ads-starter",
-    name: "Ads Starter",
-    price: 1500,
-    billing: "monthly",
+    id: "paid-ads-management",
+    name: "Paid Ads Management",
     group: "marketing",
-    label: "Ads Starter — $1,500/mo",
+    suggested_monthly: 1500,
+    scope_hint:
+      "Campaign build and ongoing management. Note the channels and ad-spend range.",
   },
   {
-    id: "full-funnel-ads",
-    name: "Full-Funnel Ads Management",
-    price: 2500,
-    billing: "monthly",
+    id: "local-lead-generation",
+    name: "Local Lead Generation",
     group: "marketing",
-    label: "Full-Funnel Ads Management — $2,500/mo",
+    scope_hint: "Local search, maps, and landing pages tuned to inbound calls and forms.",
   },
   {
-    id: "growth-partnership",
-    name: "Growth Partnership",
-    price: 4500,
-    billing: "monthly",
+    id: "full-growth-management",
+    name: "Full Growth / Acquisition Management",
     group: "marketing",
-    label: "Growth Partnership — $4,500/mo",
+    scope_hint:
+      "End-to-end acquisition: ads, landing pages, tracking, and monthly strategy.",
   },
-  // Add-ons
+  // --- Drone & Media ---
   {
-    id: "ai-local-seo-pages",
-    name: "AI Local SEO Pages",
-    price: 200,
-    billing: "one-time",
-    group: "addons",
-    label: "AI Local SEO Pages — $200/page",
-  },
-  {
-    id: "monthly-website-seo-care-plan",
-    name: "Monthly Website/SEO Care Plan",
-    price: 297,
-    billing: "monthly",
-    group: "addons",
-    label: "Monthly Website/SEO Care Plan — $297/mo",
+    id: "drone-photo-video",
+    name: "Drone Photography / Video",
+    group: "media",
+    scope_hint: "Aerial stills and video. Note shoot count, locations, and deliverables.",
   },
   {
-    id: "monthly-seo-maintenance",
-    name: "Monthly SEO Maintenance",
-    price: 400,
-    billing: "monthly",
-    group: "addons",
-    label: "Monthly SEO Maintenance — $400/mo",
+    id: "business-photo-video",
+    name: "Business Photo / Video Content",
+    group: "media",
+    scope_hint: "On-site photo and video. Note shoot length and edited deliverables.",
   },
   {
-    id: "ga4-conversion-tracking",
-    name: "GA4 + Conversion Tracking",
-    price: 350,
-    billing: "one-time",
-    group: "addons",
-    label: "GA4 + Conversion Tracking — $350 one-time",
+    id: "custom-media-package",
+    name: "Custom Media Package",
+    group: "media",
+    scope_hint: "Combined media scope built around the client's goals.",
+  },
+  // --- Custom Development ---
+  {
+    id: "web-application-portal",
+    name: "Web Application / Client Portal",
+    group: "custom",
+    scope_hint: "Accounts, dashboards, and workflows. Note the core features in scope.",
   },
   {
-    id: "cro-audit",
-    name: "CRO Audit",
-    price: 500,
-    billing: "one-time",
+    id: "automation-ai-system",
+    name: "Automation & AI System",
+    group: "custom",
+    scope_hint: "Workflow automation or AI assist. Note the systems being connected.",
+  },
+  {
+    id: "ecommerce-storefront",
+    name: "E-Commerce / Storefront",
+    group: "custom",
+    scope_hint: "Catalog, checkout, and fulfillment integration.",
+  },
+  {
+    id: "landing-page-funnel",
+    name: "Landing Page / Funnel",
+    group: "custom",
+    scope_hint: "Focused landing page or multi-step funnel with tracking.",
+  },
+  {
+    id: "custom-development",
+    name: "Custom Development",
+    group: "custom",
+    scope_hint: "Scoped engineering work. Describe the build in one or two lines.",
+  },
+  // --- Add-Ons ---
+  {
+    id: "local-seo-city-pages",
+    name: "Local SEO / City Pages",
     group: "addons",
-    label: "CRO Audit — $500 one-time",
+    scope_hint: "Service-area pages and on-page local SEO. Note page count or cadence.",
+  },
+  {
+    id: "google-business-profile",
+    name: "Google Business Profile Optimization",
+    group: "addons",
+    scope_hint: "Profile build-out, categories, photos, posts, and Q&A.",
+  },
+  {
+    id: "analytics-conversion-tracking",
+    name: "Analytics & Conversion Tracking",
+    group: "addons",
+    suggested_one_time: 350,
+    scope_hint: "GA4, call and form tracking, conversion events, reporting view.",
+  },
+  {
+    id: "review-reputation-system",
+    name: "Review / Reputation System",
+    group: "addons",
+    scope_hint: "Review requests, monitoring, and response workflow.",
+  },
+  {
+    id: "crm-lead-follow-up",
+    name: "CRM / Lead Follow-Up Automation",
+    group: "addons",
+    scope_hint: "Lead routing, follow-up sequences, and pipeline visibility.",
+  },
+  {
+    id: "maintenance-support",
+    name: "Maintenance / Ongoing Support",
+    group: "addons",
+    suggested_monthly: 297,
+    scope_hint: "Hosting, updates, backups, monitoring, and small monthly changes.",
   },
 ];
 
@@ -229,12 +310,17 @@ export const BUSINESS_TYPES = [
   "Garage Door Contractor",
   "HVAC",
   "Plumbing",
+  "Electrical",
   "Roofing",
+  "Landscaping / Outdoor",
+  "Construction / Remodeling",
   "Auto Dealer",
   "Restaurant",
   "Professional Services",
   "Real Estate",
   "Retail",
+  "E-Commerce",
+  "Health & Wellness",
   "Other",
 ] as const;
 

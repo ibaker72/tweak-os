@@ -5,16 +5,12 @@ import {
   renderProposalDocumentHtml,
 } from "@/lib/proposals/render";
 import { slugifyClient } from "@/lib/proposals/sections";
+import { proposalServiceSchema } from "@/lib/proposals/schema";
+import { calculateTotals, normalizeServices } from "@/lib/proposals/services";
 import type { ProposalSections } from "@/lib/proposals/types";
 import { requireUser } from "@/lib/auth/guard";
 
 export const maxDuration = 30;
-
-const serviceSchema = z.object({
-  name: z.string().min(1),
-  price: z.number().nonnegative(),
-  billing: z.enum(["one-time", "monthly"]),
-});
 
 const sectionsSchema = z.object({
   executive_summary: z.string().default(""),
@@ -38,7 +34,7 @@ const inputSchema = z.object({
   proposalSections: sectionsSchema,
   attachPdf: z.boolean().default(false),
   pdfBase64: z.string().optional(),
-  selectedServices: z.array(serviceSchema).default([]),
+  selectedServices: z.array(proposalServiceSchema).default([]),
   totals: z
     .object({
       total_one_time: z.number().nonnegative().default(0),
@@ -197,6 +193,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Persist as "sent" if a real recipient + we have a proposal record.
+  // Line items are the source of truth for the stored totals; the totals
+  // the client sent are only a fallback for a payload with no lines.
+  const services = normalizeServices(input.selectedServices);
+  const totals =
+    services.length > 0 ? calculateTotals(services) : input.totals;
   let proposalId = input.proposalId;
   if (!input.sendToOwnerOnly) {
     try {
@@ -216,9 +217,9 @@ export async function POST(request: NextRequest) {
             proposal_html: input.proposalHtml || fullHtml,
             client_name: input.clientName,
             website_url: input.websiteUrl || null,
-            services_json: input.selectedServices,
-            total_one_time: input.totals.total_one_time,
-            total_monthly: input.totals.total_monthly,
+            services_json: services,
+            total_one_time: totals.total_one_time,
+            total_monthly: totals.total_monthly,
             status: "sent",
             sent_at: new Date().toISOString(),
             last_edited_at: new Date().toISOString(),
@@ -233,11 +234,11 @@ export async function POST(request: NextRequest) {
             website_url: input.websiteUrl || null,
             recipient_name: input.recipientName || null,
             recipient_email: input.recipientEmail,
-            services_json: input.selectedServices,
+            services_json: services,
             proposal_sections: sections,
             proposal_html: input.proposalHtml || fullHtml,
-            total_one_time: input.totals.total_one_time,
-            total_monthly: input.totals.total_monthly,
+            total_one_time: totals.total_one_time,
+            total_monthly: totals.total_monthly,
             status: "sent",
             sent_at: new Date().toISOString(),
             last_edited_at: new Date().toISOString(),

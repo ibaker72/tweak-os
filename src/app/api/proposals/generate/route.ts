@@ -4,29 +4,28 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   PROPOSAL_SYSTEM_PROMPT,
   buildProposalUserPrompt,
-  calculateTotals,
 } from "@/lib/proposals/generate";
 import {
   parseSectionsFromMarkdown,
+  sectionsToMarkdown,
   sectionsToPlainText,
 } from "@/lib/proposals/sections";
-import type { ProposalService } from "@/lib/proposals/types";
+import { proposalServiceSchema } from "@/lib/proposals/schema";
+import {
+  buildInvestmentSummary,
+  calculateTotals,
+  normalizeServices,
+} from "@/lib/proposals/services";
 import { requireUser } from "@/lib/auth/guard";
 
 const PROPOSAL_MODEL = "claude-sonnet-4-20250514";
 const PROPOSAL_MAX_TOKENS = 2500;
 
-const serviceSchema = z.object({
-  name: z.string().min(1),
-  price: z.number().nonnegative(),
-  billing: z.enum(["one-time", "monthly"]),
-});
-
 const inputSchema = z.object({
   client_name: z.string().default(""),
   business_type: z.string().default(""),
   website_url: z.string().default(""),
-  selected_services: z.array(serviceSchema).default([]),
+  selected_services: z.array(proposalServiceSchema).default([]),
   notes: z.string().default(""),
   lead_id: z.string().uuid().optional(),
 });
@@ -62,9 +61,15 @@ export async function POST(request: NextRequest) {
   }
 
   const input = parsed;
-  const { total_one_time, total_monthly } = calculateTotals(
-    input.selected_services as ProposalService[]
-  );
+  // Prices are structured data, not model output: normalize the incoming
+  // lines once and drive both the totals and the investment section from
+  // them so nothing the model writes can change an amount.
+  const services = normalizeServices(input.selected_services);
+  const { total_one_time, total_monthly } = calculateTotals(services);
+  const investmentSummary = buildInvestmentSummary(services, {
+    total_one_time,
+    total_monthly,
+  });
 
   const supabase = guard.supabase;
 
@@ -72,7 +77,7 @@ export async function POST(request: NextRequest) {
     client_name: input.client_name,
     business_type: input.business_type,
     website_url: input.website_url,
-    selected_services: input.selected_services as ProposalService[],
+    selected_services: services,
     notes: input.notes,
     lead_id: input.lead_id,
   });
@@ -111,15 +116,21 @@ export async function POST(request: NextRequest) {
         // Persist after streaming completes (best-effort).
         try {
           const sections = parseSectionsFromMarkdown(fullText);
+          // The investment section is deterministic — whatever the model
+          // produced is replaced with the numbers the agent entered.
+          sections.investment_summary = investmentSummary;
           const plain = sectionsToPlainText(sections);
+          // Store the reconciled markdown, not the raw stream, so the
+          // saved document and its sections quote the same numbers.
+          const markdown = sectionsToMarkdown(sections) || fullText;
           await supabase.from("proposals").insert({
             lead_id: input.lead_id ?? null,
             created_by: guard.agent.id,
             client_name: input.client_name || null,
             business_type: input.business_type || null,
             website_url: input.website_url || null,
-            services_json: input.selected_services,
-            proposal_html: fullText,
+            services_json: services,
+            proposal_html: markdown,
             proposal_sections: sections,
             proposal_text: plain,
             total_one_time,

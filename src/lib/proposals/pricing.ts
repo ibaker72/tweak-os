@@ -1,13 +1,34 @@
-import { SERVICE_CATALOG, type ProposalService } from "./types";
+import type { ProposalService } from "./types";
+
+export { calculateTotals } from "./services";
 
 export type PriceMode = "one_time" | "setup_plus_monthly";
 
 export const NJ_SOURCE_LABEL = "NJ Business Records";
 
 /**
- * Premium packages that justify the Growth Website System tier pricing
+ * Starting amounts for the programmatic default bundles below. These are
+ * internal starting points for a machine-created draft, not customer
+ * prices: whoever opens the proposal edits every amount before it is
+ * generated or sent.
+ */
+const DEFAULT_PRICES = {
+  launch_kit: 2500,
+  standard_build: 3500,
+  premium_build: 6500,
+  care_plan: 297,
+  seo_maintenance: 400,
+} as const;
+
+const CARE_PLAN_NAME = "Monthly Website/SEO Care Plan";
+const SEO_MAINTENANCE_NAME = "Monthly SEO Maintenance";
+
+/**
+ * Premium package names that justify the higher build tier
  * ($6,500+ one-time). Anything outside this list — and especially the
  * Launch Kit pitch — should default to lower, startup-friendly pricing.
+ * These names are legacy: they are matched against what a caller sends,
+ * not offered anywhere in the current catalog.
  */
 const PREMIUM_PACKAGE_KEYWORDS = [
   "full growth system",
@@ -63,15 +84,12 @@ export function isLaunchKitPackage(packageName: string): boolean {
   return packageMatches(packageName, LAUNCH_KIT_PACKAGE_KEYWORDS);
 }
 
-function findService(id: string) {
-  return SERVICE_CATALOG.find((s) => s.id === id);
-}
-
 /**
- * Default service bundles for proposals created via the API. Newly
- * filed NJ businesses with no website get the Launch Kit pricing —
- * established businesses (or anyone who explicitly asks for a premium
- * package) keep the Growth Website System / Foundation Website tiers.
+ * Default service bundles for proposals created programmatically (a
+ * caller that names a package rather than picking scope in the
+ * composer). Newly filed NJ businesses with no website get Launch Kit
+ * pricing; everyone else gets the standard build tier. Every amount is a
+ * starting point the agent edits before the proposal goes out.
  */
 export function buildDefaultServices(args: {
   packageName: string;
@@ -95,25 +113,17 @@ function buildLaunchKitServices(
   packageName: string,
   priceMode: PriceMode
 ): ProposalService[] {
-  const launchKit = findService("new-business-launch-kit");
-  // Keep the caller's package label when provided so the proposal
-  // header still reads "New Business Launch Kit" (or whatever they
-  // sent) rather than the catalog default.
+  // Keep the caller's package label when provided so the proposal header
+  // still reads whatever they sent rather than a generic default.
   const launchKitLine: ProposalService = {
-    name: packageName || launchKit?.name || "New Business Launch Kit",
-    price: launchKit?.price ?? 2500,
-    billing: "one-time",
+    name: packageName || "New Business Launch",
+    one_time_price: DEFAULT_PRICES.launch_kit,
   };
 
   if (priceMode === "setup_plus_monthly") {
-    const monthly = findService("monthly-website-seo-care-plan");
     return [
       launchKitLine,
-      {
-        name: monthly?.name ?? "Monthly Website/SEO Care Plan",
-        price: monthly?.price ?? 297,
-        billing: "monthly",
-      },
+      { name: CARE_PLAN_NAME, monthly_price: DEFAULT_PRICES.care_plan },
     ];
   }
 
@@ -124,43 +134,15 @@ function buildStandardServices(
   packageName: string,
   priceMode: PriceMode
 ): ProposalService[] {
-  const foundation = findService("foundation-website");
-  const growth = findService("growth-website-system");
-  const seo = findService("monthly-seo-maintenance");
-
   if (priceMode === "setup_plus_monthly") {
     return [
+      { name: packageName, one_time_price: DEFAULT_PRICES.premium_build },
       {
-        name: packageName,
-        price: growth?.price ?? 6500,
-        billing: "one-time",
-      },
-      {
-        name: seo?.name ?? "Monthly Care + SEO",
-        price: seo?.price ?? 400,
-        billing: "monthly",
+        name: SEO_MAINTENANCE_NAME,
+        monthly_price: DEFAULT_PRICES.seo_maintenance,
       },
     ];
   }
 
-  return [
-    {
-      name: packageName,
-      price: foundation?.price ?? 3500,
-      billing: "one-time",
-    },
-  ];
-}
-
-export function calculateTotals(services: ProposalService[]): {
-  total_one_time: number;
-  total_monthly: number;
-} {
-  let total_one_time = 0;
-  let total_monthly = 0;
-  for (const s of services) {
-    if (s.billing === "one-time") total_one_time += s.price;
-    else if (s.billing === "monthly") total_monthly += s.price;
-  }
-  return { total_one_time, total_monthly };
+  return [{ name: packageName, one_time_price: DEFAULT_PRICES.standard_build }];
 }

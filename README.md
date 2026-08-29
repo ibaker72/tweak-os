@@ -45,7 +45,8 @@ src/
   lib/
     leads/             Scoring, enrichment, discovery, assignment,
                        mutations, queries, smart lists, sequences, CSV
-    proposals/         Section parsing, generation prompts, PDF, types
+    proposals/         Service catalog, section parsing, generation prompts,
+                       PDF, line-item normalization, types
     supabase/          client (browser) / server (SSR) / service (service-role)
     shared/            activity-logger, constants
     sms/  ai/  validators/
@@ -418,7 +419,16 @@ Or paste a single migration into the SQL editor in the Supabase dashboard.
 
 ## Conventions
 
-- **Money**: `bigint` cents everywhere, formatted only at the render edge.
+- **Money**: `bigint` cents everywhere, formatted only at the render edge. The
+  older `proposals` table is the one exception: `services_json` and its totals
+  are whole dollars, and stay that way.
+- **Proposal catalog**: `SERVICE_CATALOG` is a set of scope templates, not a
+  price list. Selecting one seeds a line with a suggested amount; the agent sets
+  the real one-time price, monthly price, and scope note per client. One-time and
+  monthly totals are always kept separate, and the investment section is built
+  from the selected lines rather than written by the model. Line items are
+  normalized on read (`lib/proposals/services.ts`), so proposals saved by the old
+  fixed-package catalog still load, render, and export correctly.
 - **Rates**: integer basis points.
 - **Validation**: every API route Zod-validates its body and query, and returns
   typed errors.

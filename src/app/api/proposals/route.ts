@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sectionsToMarkdown, sectionsToPlainText } from "@/lib/proposals/sections";
+import { proposalServiceSchema } from "@/lib/proposals/schema";
+import { calculateTotals, normalizeServices } from "@/lib/proposals/services";
 import type { ProposalSections } from "@/lib/proposals/types";
 import { requireUser } from "@/lib/auth/guard";
 
@@ -57,12 +59,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-const serviceSchema = z.object({
-  name: z.string().min(1),
-  price: z.number().nonnegative(),
-  billing: z.enum(["one-time", "monthly"]),
-});
-
 const sectionsSchema = z.object({
   executive_summary: z.string().default(""),
   what_we_found: z.string().default(""),
@@ -80,7 +76,7 @@ const saveSchema = z.object({
   website_url: z.string().default(""),
   recipient_name: z.string().default(""),
   recipient_email: z.string().email().or(z.literal("")).default(""),
-  selected_services: z.array(serviceSchema).default([]),
+  selected_services: z.array(proposalServiceSchema).default([]),
   proposal_sections: sectionsSchema.optional(),
   proposal_html: z.string().default(""),
   lead_id: z.string().uuid().optional(),
@@ -94,12 +90,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const input = saveSchema.parse(body);
-    const total_one_time = input.selected_services
-      .filter((s) => s.billing === "one-time")
-      .reduce((a, s) => a + s.price, 0);
-    const total_monthly = input.selected_services
-      .filter((s) => s.billing === "monthly")
-      .reduce((a, s) => a + s.price, 0);
+    // One stored shape, whatever the caller sent: normalize first, then
+    // total from the normalized lines so the row and its totals agree.
+    const services = normalizeServices(input.selected_services);
+    const { total_one_time, total_monthly } = calculateTotals(services);
 
     const sections = input.proposal_sections as ProposalSections | undefined;
     const md = sections
@@ -117,7 +111,7 @@ export async function POST(request: NextRequest) {
       website_url: input.website_url || null,
       recipient_name: input.recipient_name || null,
       recipient_email: input.recipient_email || null,
-      services_json: input.selected_services,
+      services_json: services,
       proposal_html: md,
       proposal_sections: sections ?? {},
       proposal_text: txt || null,

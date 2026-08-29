@@ -23,7 +23,8 @@ const HINTS: Partial<Record<keyof ProposalSections, string>> = {
   executive_summary: "2-3 sentences. Use soft language — no exact lead counts.",
   what_we_found: "Bulleted list of the opportunities you identified.",
   our_recommendation: "Which services and why, tied to the findings above.",
-  investment_summary: "Markdown table: | Service | Price | Billing |",
+  investment_summary:
+    "Built from the selected services: | Service | One-Time | Monthly |, then the two totals.",
   what_happens_next: "Numbered steps: Discovery → Build → Launch.",
   about: "Short bio paragraph about Tweak & Build.",
   custom_notes: "Optional. Specific notes for this proposal only.",

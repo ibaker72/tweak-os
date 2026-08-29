@@ -96,13 +96,11 @@ describe("buildDefaultServices — Launch Kit lead", () => {
     expect(services).toHaveLength(2);
     expect(services[0]).toMatchObject({
       name: "New Business Launch Kit",
-      price: 2500,
-      billing: "one-time",
+      one_time_price: 2500,
     });
     expect(services[1]).toMatchObject({
       name: "Monthly Website/SEO Care Plan",
-      price: 297,
-      billing: "monthly",
+      monthly_price: 297,
     });
     const totals = calculateTotals(services);
     expect(totals.total_one_time).toBe(2500);
@@ -118,8 +116,7 @@ describe("buildDefaultServices — Launch Kit lead", () => {
     expect(services).toHaveLength(1);
     expect(services[0]).toMatchObject({
       name: "New Business Launch Kit",
-      price: 2500,
-      billing: "one-time",
+      one_time_price: 2500,
     });
     const totals = calculateTotals(services);
     expect(totals.total_one_time).toBe(2500);
@@ -144,7 +141,7 @@ describe("buildDefaultServices — Launch Kit lead", () => {
       priceMode: "one_time",
       lead: NJ_LEAD,
     });
-    expect(services[0].price).toBe(2500);
+    expect(services[0].one_time_price).toBe(2500);
   });
 
   it("does not produce a standalone $500 setup line in any mode", () => {
@@ -160,7 +157,8 @@ describe("buildDefaultServices — Launch Kit lead", () => {
     });
     for (const svc of [...setupPlusMonthly, ...oneTime]) {
       expect(svc.name).not.toMatch(/setup/i);
-      expect(svc.price).not.toBe(500);
+      expect(svc.one_time_price).not.toBe(500);
+      expect(svc.monthly_price).not.toBe(500);
     }
   });
 });
@@ -183,7 +181,7 @@ describe("buildDefaultServices — premium package overrides", () => {
       priceMode: "one_time",
       lead: NJ_LEAD,
     });
-    expect(services[0].price).toBe(3500);
+    expect(services[0].one_time_price).toBe(3500);
   });
 
   it("Ads Funnel Buildout uses the standard tier", () => {
@@ -209,13 +207,11 @@ describe("buildDefaultServices — established lead", () => {
     expect(services).toHaveLength(2);
     expect(services[0]).toMatchObject({
       name: "New Business Launch Kit",
-      price: 2500,
-      billing: "one-time",
+      one_time_price: 2500,
     });
     expect(services[1]).toMatchObject({
       name: "Monthly Website/SEO Care Plan",
-      price: 297,
-      billing: "monthly",
+      monthly_price: 297,
     });
   });
 
@@ -225,16 +221,16 @@ describe("buildDefaultServices — established lead", () => {
       priceMode: "one_time",
       lead: ESTABLISHED_LEAD,
     });
-    expect(services[0].price).toBe(3500);
+    expect(services[0].one_time_price).toBe(3500);
   });
 });
 
 describe("calculateTotals", () => {
   it("sums one-time and monthly buckets independently", () => {
     const totals = calculateTotals([
-      { name: "Setup", price: 500, billing: "one-time" },
-      { name: "Care plan", price: 297, billing: "monthly" },
-      { name: "Add-on", price: 200, billing: "one-time" },
+      { name: "Setup", one_time_price: 500 },
+      { name: "Care plan", monthly_price: 297 },
+      { name: "Add-on", one_time_price: 200 },
     ]);
     expect(totals.total_one_time).toBe(700);
     expect(totals.total_monthly).toBe(297);

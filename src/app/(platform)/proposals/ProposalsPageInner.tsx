@@ -25,6 +25,8 @@ import {
   Moon,
   ExternalLink,
   Archive,
+  Plus,
+  X,
 } from "lucide-react";
 import {
   BUSINESS_TYPES,
@@ -34,7 +36,16 @@ import {
   type ProposalStatus,
   type Proposal,
   type ProposalSections,
+  type ServiceCatalogItem,
 } from "@/lib/proposals/types";
+import {
+  buildInvestmentSummary,
+  calculateTotals,
+  catalogSuggestionLabel,
+  formatMoney as moneyFmt,
+  normalizeServices,
+  serviceFromCatalogItem,
+} from "@/lib/proposals/services";
 import {
   buildDefaultSections,
   emptySections,
@@ -49,8 +60,17 @@ import { ProposalPreview } from "@/components/proposals/ProposalPreview";
 import { EmailProposalModal, type EmailProposalPayload } from "@/components/proposals/EmailProposalModal";
 import { Toast, type ToastTone } from "@/components/proposals/Toast";
 
-function moneyFmt(n: number): string {
-  return `$${n.toLocaleString("en-US")}`;
+/**
+ * Prices on a proposal are whole dollars — the convention the proposals
+ * table has always used. Parse to an integer so nothing downstream has to
+ * deal with fractional cents.
+ */
+function parsePriceInput(raw: string): number | undefined {
+  const cleaned = raw.replace(/[^0-9.]/g, "");
+  if (!cleaned) return undefined;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return Math.round(n);
 }
 
 function detectBusinessType(url: string, fallback: string): string {
@@ -114,7 +134,7 @@ export function ProposalsPageInner() {
     detectBusinessType(presetUrl, "Home Services")
   );
   const [websiteUrl, setWebsiteUrl] = useState(presetUrl);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedServices, setSelectedServices] = useState<ProposalService[]>([]);
   const [notes, setNotes] = useState("");
 
   const [generating, setGenerating] = useState(false);
@@ -253,60 +273,44 @@ export function ProposalsPageInner() {
     setRecipientName(proposal.recipient_name ?? "");
     setRecipientEmail(proposal.recipient_email ?? "");
     setSections(getProposalSections(proposal));
-    const serviceNames = new Set((proposal.services_json ?? []).map((svc) => svc.name));
-    setSelectedIds(
-      new Set(
-        SERVICE_CATALOG.filter((item) => serviceNames.has(item.name)).map((item) => item.id)
-      )
-    );
+    // Load the stored lines as-is (legacy shapes included) so an old
+    // proposal keeps its exact scope and pricing when reopened.
+    setSelectedServices(normalizeServices(proposal.services_json));
     setTimeout(() => {
       document.getElementById("proposal-composer")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   }
 
 
-  const selectedServices = useMemo<ProposalService[]>(() => {
-    const out: ProposalService[] = [];
-    for (const item of SERVICE_CATALOG) {
-      if (!selectedIds.has(item.id)) continue;
-      out.push({
-        name: item.name,
-        price: item.price,
-        billing: item.billing,
-      });
-      if (item.secondary) {
-        out.push({
-          name: `${item.name} (recurring)`,
-          price: item.secondary.price,
-          billing: item.secondary.billing,
-        });
-      }
-    }
-    return out;
-  }, [selectedIds]);
+  const selectedCatalogIds = useMemo(
+    () => new Set(selectedServices.map((svc) => svc.id).filter(Boolean) as string[]),
+    [selectedServices]
+  );
 
-  const totals = useMemo(() => {
-    let oneTime = 0;
-    let monthly = 0;
-    for (const svc of selectedServices) {
-      if (svc.billing === "one-time") oneTime += svc.price;
-      else monthly += svc.price;
-    }
-    return { total_one_time: oneTime, total_monthly: monthly };
-  }, [selectedServices]);
+  const totals = useMemo(() => calculateTotals(selectedServices), [selectedServices]);
 
   const proposalEmpty = useMemo(
     () => !Object.values(sections).some((s) => s.trim().length > 0),
     [sections]
   );
 
-  function toggleService(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  /** Add a catalog template to the scope, or drop it if it is already in. */
+  function toggleCatalogItem(item: ServiceCatalogItem) {
+    setSelectedServices((prev) =>
+      prev.some((svc) => svc.id === item.id)
+        ? prev.filter((svc) => svc.id !== item.id)
+        : [...prev, serviceFromCatalogItem(item)]
+    );
+  }
+
+  function updateService(index: number, patch: Partial<ProposalService>) {
+    setSelectedServices((prev) =>
+      prev.map((svc, i) => (i === index ? { ...svc, ...patch } : svc))
+    );
+  }
+
+  function removeService(index: number) {
+    setSelectedServices((prev) => prev.filter((_, i) => i !== index));
   }
 
   function preloadDefaults() {
@@ -379,6 +383,9 @@ export function ProposalsPageInner() {
         for (const key of Object.keys(defaults) as (keyof ProposalSections)[]) {
           if (!merged[key]?.trim()) merged[key] = defaults[key];
         }
+        // Investment stays deterministic: the exact amounts entered above,
+        // never whatever the model decided to write.
+        merged.investment_summary = buildInvestmentSummary(selectedServices, totals);
         return merged;
       });
 
@@ -757,31 +764,49 @@ export function ProposalsPageInner() {
               </div>
 
               <div className="space-y-4 border-t border-zinc-800 pt-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Build the Scope
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Pick what this client actually needs, then price it for them.
+                    Catalog amounts are starting points, not fixed prices.
+                  </p>
+                </div>
+
                 {SERVICE_GROUPS.map((group) => {
                   const items = SERVICE_CATALOG.filter(
-                    (svc) => svc.group === group.id
+                    (item) => item.group === group.id
                   );
+                  if (items.length === 0) return null;
                   return (
                     <div key={group.id}>
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
                         {group.label}
                       </p>
-                      <div className="space-y-1.5">
-                        {items.map((svc) => {
-                          const checked = selectedIds.has(svc.id);
+                      <div className="flex flex-wrap gap-1.5">
+                        {items.map((item) => {
+                          const active = selectedCatalogIds.has(item.id);
                           return (
-                            <label
-                              key={svc.id}
-                              className="flex cursor-pointer items-center gap-2.5 rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm transition-colors hover:border-zinc-700"
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => toggleCatalogItem(item)}
+                              aria-pressed={active}
+                              title={catalogSuggestionLabel(item)}
+                              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                                active
+                                  ? "border-lime-400/40 bg-lime-400/10 text-lime-300"
+                                  : "border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:border-zinc-700 hover:text-zinc-100"
+                              }`}
                             >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleService(svc.id)}
-                                className="h-4 w-4 cursor-pointer accent-lime-400"
-                              />
-                              <span className="flex-1 text-zinc-200">{svc.label}</span>
-                            </label>
+                              {active ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : (
+                                <Plus className="h-3.5 w-3.5 text-zinc-500" />
+                              )}
+                              {item.name}
+                            </button>
                           );
                         })}
                       </div>
@@ -790,17 +815,54 @@ export function ProposalsPageInner() {
                 })}
               </div>
 
+              <div className="space-y-2 border-t border-zinc-800 pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Selected Services
+                  </p>
+                  {selectedServices.length > 0 && (
+                    <span className="text-[11px] text-zinc-500">
+                      {selectedServices.length} in scope
+                    </span>
+                  )}
+                </div>
+                {selectedServices.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-zinc-800 px-3 py-4 text-center text-xs text-zinc-500">
+                    Nothing selected yet. Add services above to start scoping this proposal.
+                  </p>
+                ) : (
+                  selectedServices.map((svc, index) => (
+                    <ServiceLineEditor
+                      key={`${svc.id ?? svc.name}-${index}`}
+                      service={svc}
+                      scopeHint={
+                        SERVICE_CATALOG.find((item) => item.id === svc.id)?.scope_hint
+                      }
+                      onChange={(patch) => updateService(index, patch)}
+                      onRemove={() => removeService(index)}
+                    />
+                  ))
+                )}
+              </div>
+
               <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Running Total
                 </p>
-                <p className="mt-1 text-sm text-zinc-100">
-                  <span className="text-zinc-400">One-time:</span>{" "}
-                  <span className="font-semibold">{moneyFmt(totals.total_one_time)}</span>
-                  <span className="mx-2 text-zinc-700">|</span>
-                  <span className="text-zinc-400">Monthly:</span>{" "}
-                  <span className="font-semibold">{moneyFmt(totals.total_monthly)}/mo</span>
-                </p>
+                <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-zinc-500">One-time investment</p>
+                    <p className="font-semibold text-zinc-100">
+                      {moneyFmt(totals.total_one_time)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500">Monthly recurring</p>
+                    <p className="font-semibold text-zinc-100">
+                      {moneyFmt(totals.total_monthly)}/mo
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1129,5 +1191,83 @@ function ProposalRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+/**
+ * One selected service. The catalog only seeds the name and a suggested
+ * amount — the agent sets the real one-time price, the real monthly
+ * price, and an optional scope note here before anything is generated.
+ */
+function ServiceLineEditor({
+  service,
+  scopeHint,
+  onChange,
+  onRemove,
+}: {
+  service: ProposalService;
+  scopeHint?: string;
+  onChange: (patch: Partial<ProposalService>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-zinc-100">{service.name}</p>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          aria-label={`Remove ${service.name}`}
+          title="Remove"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div>
+          <label className="text-[11px] uppercase tracking-wide text-zinc-500">
+            One-time ($)
+          </label>
+          <Input
+            className="mt-1 h-9"
+            type="number"
+            min={0}
+            inputMode="numeric"
+            placeholder="—"
+            value={service.one_time_price ?? ""}
+            onChange={(e) =>
+              onChange({ one_time_price: parsePriceInput(e.target.value) })
+            }
+            aria-label={`${service.name} one-time price`}
+          />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-wide text-zinc-500">
+            Monthly ($/mo)
+          </label>
+          <Input
+            className="mt-1 h-9"
+            type="number"
+            min={0}
+            inputMode="numeric"
+            placeholder="—"
+            value={service.monthly_price ?? ""}
+            onChange={(e) =>
+              onChange({ monthly_price: parsePriceInput(e.target.value) })
+            }
+            aria-label={`${service.name} monthly price`}
+          />
+        </div>
+      </div>
+      <Textarea
+        className="mt-2 text-xs"
+        rows={2}
+        placeholder={scopeHint ?? "Scope note (optional)"}
+        value={service.description ?? ""}
+        onChange={(e) => onChange({ description: e.target.value })}
+        aria-label={`${service.name} scope note`}
+      />
+    </div>
   );
 }

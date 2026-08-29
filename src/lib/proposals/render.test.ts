@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { messageHasOwnGreeting, renderProposalEmailBody } from "./render";
 import { emptySections } from "./sections";
+import { buildInvestmentSummary } from "./services";
 
 describe("messageHasOwnGreeting", () => {
   it("detects a leading 'Hi'", () => {
@@ -95,5 +96,43 @@ describe("renderProposalEmailBody", () => {
     // Mobile premium look — soft off-white, not slate-200.
     expect(html).toContain("#f7f8f5");
     expect(html).not.toMatch(/background:#f1f5f9/);
+  });
+});
+
+describe("investment table rendering", () => {
+  function investmentHtml(services: unknown): string {
+    return renderProposalEmailBody({
+      sections: {
+        ...emptySections(),
+        investment_summary: buildInvestmentSummary(services),
+      },
+      clientName: "Acme",
+      recipientName: "Joe",
+      message: "Quick plan attached.",
+    });
+  }
+
+  it("renders the one-time / monthly columns for a current proposal", () => {
+    const html = investmentHtml([
+      { name: "Custom Business Website", one_time_price: 4800 },
+      { name: "Local SEO / City Pages", monthly_price: 750 },
+    ]);
+    expect(html).toContain("One-Time");
+    expect(html).toContain("Monthly");
+    expect(html).toContain("$4,800");
+    expect(html).toContain("$750/month");
+    expect(html).toContain("Total One-Time Investment:");
+    expect(html).toContain("Monthly Ongoing Investment:");
+  });
+
+  it("renders a historical proposal's legacy line items with their amounts", () => {
+    const html = investmentHtml([
+      { name: "Premium Growth Package", price: 8500, billing: "one-time" },
+      { name: "Growth Partnership", price: 4500, billing: "monthly" },
+    ]);
+    expect(html).toContain("Premium Growth Package");
+    expect(html).toContain("$8,500");
+    expect(html).toContain("Growth Partnership");
+    expect(html).toContain("$4,500/month");
   });
 });
