@@ -108,6 +108,7 @@ export interface Lead {
   outreach: OutreachData | null;
   notes: string | null;
   manual_notes: string | null;
+  contact_name: string | null;
   source: string | null;
   enrichment_error: string | null;
   contact_status: string | null;
@@ -157,6 +158,9 @@ export interface ImportJob {
   failed_rows: number;
   status: JobStatus;
   created_at: string;
+  /** Which agent ran the import. Null for jobs created before 00020. */
+  created_by?: string | null;
+  source?: "admin_upload" | "agent_self_sourced";
 }
 
 export interface EnrichmentJob {

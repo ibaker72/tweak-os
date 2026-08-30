@@ -26,6 +26,8 @@ export async function insertLead(
       phone: row.phone ?? null,
       source: row.source ?? null,
       niche: row.niche ?? row.industry ?? null,
+      contact_name: row.contact_name ?? null,
+      manual_notes: row.notes ?? null,
       external_id: row.external_id ?? null,
       entity_type: row.entity_type ?? null,
       entity_status: row.entity_status ?? null,

@@ -94,7 +94,8 @@ build if it appears anywhere else, or if any route handler is left unguarded.
 | Group | Routes |
 | --- | --- |
 | Leads | `/api/leads`, `/leads/list`, `/leads/assign`, `/leads/work-queue` |
-| Discovery | `/api/discover`, `/api/enrich`, `/api/enrich-bulk`, `/api/imports`, `/api/exports` |
+| Discovery | `/api/discover`, `/api/enrich`, `/api/enrich-bulk`, `/api/exports` |
+| Imports | `/api/imports` (admin bulk), `/api/my/imports` (agent self-sourced) |
 | Outreach | `/api/outreach`, `/outreach/sequences`, `/outreach/templates` |
 | Proposals | `/api/proposals`, `/proposals/generate`, `/proposals/send` |
 | SMS | `/api/sms/send`, `/api/sms/status`, `/api/webhooks/twilio/sms` |
@@ -185,6 +186,7 @@ helper functions stop resolving them and every ownership predicate goes false.
 | `/my/queue` | The daily driver. Assigned leads, soonest action first. Keyboard-first and optimistic |
 | `/my/pipeline` | Their deals by stage, with earned and expected shown separately |
 | `/my/commissions` | The ledger, with CSV export |
+| `/my/import` | Upload leads they sourced themselves, credited as self-sourced |
 | `/leads/[id]` | Adds Convert to Account |
 
 **Scoped by RLS, not by a filter.** None of these queries carry an
@@ -223,6 +225,41 @@ It creates the account and a **draft** deal, resolves the winning attribution
 won, and logs the conversion. An admin reviews the contract value and signs.
 Credit goes to the lead's owner, not to whoever clicked — so an admin
 converting on an agent's behalf does not take the commission.
+
+### Self-sourced imports
+
+Agents source their own leads in a spreadsheet and import them at `/my/import`.
+Phase 1's block on agent lead creation is not lifted to make this work: there
+is still **no INSERT policy on `leads` or `attributions` for agents**, and
+`supabase/migrations/00020_agent_self_sourced_imports.sql` refuses to apply if
+one ever appears.
+
+Imports run through `public.import_agent_leads()`, a `SECURITY DEFINER`
+function on the same model as the conversion function. **There is no agent
+parameter** — the crediting agent comes from `private.current_agent_id()`,
+which reads the JWT — so an agent cannot import onto a teammate, and the
+route holds the caller's RLS-bound client rather than the service role. The
+function reads only whitelisted per-row keys, so an `assigned_to`, `agent_id`,
+`source` or rate field smuggled into the payload is never looked at.
+
+Each imported lead is assigned to the caller with `assigned_at = now()` and
+gets a matching `self_sourced` attribution row on the standard 90-day expiry.
+That row is the point: Phase 5 only drops an agent to the inbound rate when an
+explicit `inbound_assigned` attribution exists, so a self-sourced lead needs a
+record of its own rather than relying on the absence of one.
+
+Duplicate protection is unchanged — `external_id` when present, otherwise
+`business_name` + `state`, both case-insensitive — and deliberately looks at
+every lead in the table, not just the caller's. Two agents importing the same
+business is exactly the ambiguity this is meant to prevent. Beyond the standard
+headers the parser also accepts a research sheet's own column names (`Company`,
+`Type`, `Decision Maker`, `Phone Number`, a combined `City, State`); aliases
+only ever fill an empty field, so every CSV that imported before still imports
+identically.
+
+The admin bulk importer at `/leads/import` is untouched, still admin-only, and
+still credits nobody — leads it creates are unassigned and carry no
+attribution.
 
 ### Outreach
 

@@ -40,6 +40,7 @@ const navGroups: NavGroup[] = [
       { label: "My Queue", href: "/my/queue", icon: ClipboardList },
       { label: "My Pipeline", href: "/my/pipeline", icon: TrendingUp },
       { label: "My Commissions", href: "/my/commissions", icon: Wallet },
+      { label: "Import My Leads", href: "/my/import", icon: Upload },
     ],
   },
   {

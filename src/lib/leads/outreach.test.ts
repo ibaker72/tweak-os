@@ -43,6 +43,7 @@ function makeLead(overrides: Partial<Lead> = {}): Lead {
     outreach: null,
     notes: null,
     manual_notes: null,
+    contact_name: null,
     source: "NJ Business Records",
     enrichment_error: null,
     contact_status: null,

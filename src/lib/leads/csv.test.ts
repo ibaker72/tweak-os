@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseCsvContent } from "./csv";
+import {
+  COMBINED_LOCATION_LABEL,
+  mapStandardHeader,
+  parseCsvContent,
+  splitCityState,
+} from "./csv";
 
 describe("parseCsvContent — standard format", () => {
   it("parses our normal CSV", () => {
@@ -118,5 +123,133 @@ describe("parseCsvContent — NJ Business Records format", () => {
     const { valid } = parseCsvContent(csv);
     expect(valid[0].address).toBe("42 Elm Ave");
     expect(valid[0].zip).toBe("08540");
+  });
+});
+
+describe("parseCsvContent — agent research sheet headers", () => {
+  it("maps Mary's column names onto lead fields", () => {
+    const csv = [
+      "Company,Type,City,State,Decision Maker,Email,Website,Phone,Notes",
+      "Rockstar Beauty,Salon,Newark,NJ,Dana Reed,dana@rockstar.com,rockstar.com,555-0100,Met at expo",
+    ].join("\n");
+
+    const { valid, errors, detectedFormat } = parseCsvContent(csv);
+    expect(detectedFormat).toBe("standard");
+    expect(errors).toEqual([]);
+    const row = valid[0];
+    expect(row.business_name).toBe("Rockstar Beauty");
+    expect(row.niche).toBe("Salon");
+    expect(row.city).toBe("Newark");
+    expect(row.state).toBe("NJ");
+    expect(row.contact_name).toBe("Dana Reed");
+    expect(row.email).toBe("dana@rockstar.com");
+    expect(row.website).toBe("https://rockstar.com");
+    expect(row.phone).toBe("555-0100");
+    expect(row.notes).toBe("Met at expo");
+  });
+
+  it("accepts the alternative spellings of each header", () => {
+    const csv = [
+      "Business Name,Industry,Contact Name,Phone Number",
+      "Acme Roofing,Roofing,Sam Vale,555-0111",
+    ].join("\n");
+
+    const { valid, errors } = parseCsvContent(csv);
+    expect(errors).toEqual([]);
+    expect(valid[0].business_name).toBe("Acme Roofing");
+    expect(valid[0].niche).toBe("Roofing");
+    expect(valid[0].contact_name).toBe("Sam Vale");
+    expect(valid[0].phone).toBe("555-0111");
+  });
+
+  it("parses a combined 'City, State' column into both fields", () => {
+    const csv = ['Company Name,"City, State"', "Beta LLC,\"Trenton, NJ\""].join("\n");
+
+    const { valid, errors } = parseCsvContent(csv);
+    expect(errors).toEqual([]);
+    expect(valid[0].city).toBe("Trenton");
+    expect(valid[0].state).toBe("NJ");
+  });
+
+  it("splits a City column that holds 'Newark, NJ' when there is no state column", () => {
+    const csv = ["Company,City", 'Gamma Co,"Newark, NJ"'].join("\n");
+
+    const { valid } = parseCsvContent(csv);
+    expect(valid[0].city).toBe("Newark");
+    expect(valid[0].state).toBe("NJ");
+  });
+
+  it("leaves a comma-bearing city alone when the tail is not a state", () => {
+    const csv = ["Company,City", 'Delta Co,"Newark, Downtown"'].join("\n");
+
+    const { valid } = parseCsvContent(csv);
+    expect(valid[0].city).toBe("Newark, Downtown");
+    expect(valid[0].state).toBeUndefined();
+  });
+
+  it("does not let a combined column overwrite an explicit state column", () => {
+    const csv = ['Company,"City, State",State', 'Epsilon Co,"Newark, NJ",PA'].join("\n");
+
+    const { valid } = parseCsvContent(csv);
+    expect(valid[0].state).toBe("PA");
+  });
+
+  it("keeps an explicit business_name column when Company is also present", () => {
+    const csv = ["business_name,Company", "Canonical LLC,Alias LLC"].join("\n");
+
+    const { valid } = parseCsvContent(csv);
+    expect(valid[0].business_name).toBe("Canonical LLC");
+  });
+});
+
+describe("mapStandardHeader", () => {
+  it("reports the field each supported header lands in", () => {
+    expect(mapStandardHeader("Company")).toBe("business_name");
+    expect(mapStandardHeader("Business Name")).toBe("business_name");
+    expect(mapStandardHeader("Type")).toBe("niche");
+    expect(mapStandardHeader("Industry")).toBe("niche");
+    expect(mapStandardHeader("Decision Maker")).toBe("contact_name");
+    expect(mapStandardHeader("Phone Number")).toBe("phone");
+    expect(mapStandardHeader("City, State")).toBe(COMBINED_LOCATION_LABEL);
+    expect(mapStandardHeader("Notes")).toBe("notes");
+  });
+
+  it("still reports the original snake_case headers", () => {
+    expect(mapStandardHeader("business_name")).toBe("business_name");
+    expect(mapStandardHeader("external_id")).toBe("external_id");
+    expect(mapStandardHeader("source")).toBe("source");
+  });
+
+  it("returns null for a column the importer ignores", () => {
+    expect(mapStandardHeader("Random Column")).toBeNull();
+    expect(mapStandardHeader("assigned_to")).toBeNull();
+    expect(mapStandardHeader("agent_id")).toBeNull();
+  });
+});
+
+describe("splitCityState", () => {
+  it("splits a two-letter state code", () => {
+    expect(splitCityState("Newark, NJ")).toEqual({ city: "Newark", state: "NJ" });
+  });
+
+  it("splits a spelled-out state", () => {
+    expect(splitCityState("Newark, New Jersey")).toEqual({
+      city: "Newark",
+      state: "New Jersey",
+    });
+  });
+
+  it("uppercases a lowercase abbreviation", () => {
+    expect(splitCityState("Trenton, nj")).toEqual({ city: "Trenton", state: "NJ" });
+  });
+
+  it("returns the whole value as a city when there is no comma", () => {
+    expect(splitCityState("Ho-Ho-Kus")).toEqual({ city: "Ho-Ho-Kus" });
+  });
+
+  it("does not invent a state from a trailing word that is not one", () => {
+    expect(splitCityState("Newark, Essex County")).toEqual({
+      city: "Newark, Essex County",
+    });
   });
 });

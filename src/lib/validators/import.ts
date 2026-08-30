@@ -35,6 +35,11 @@ export const csvLeadRowSchema = z.object({
   niche: optionalTrimmed,
   industry: optionalTrimmed,
 
+  // Mary's research sheet carries a decision-maker and free-text notes per
+  // row. Both are optional — a sheet without them is still a valid import.
+  contact_name: optionalTrimmed,
+  notes: optionalTrimmed,
+
   // NJ Business Records fields
   external_id: optionalTrimmed,
   entity_type: optionalTrimmed,
