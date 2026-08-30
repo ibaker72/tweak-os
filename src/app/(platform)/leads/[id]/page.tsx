@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LeadDetailCard } from "@/components/dashboard/lead-detail-card";
 import { LeadDetailExtras } from "@/components/dashboard/lead-detail-extras";
 import { SmsPanel } from "@/components/dashboard/sms-panel";
+import { VoiceCallPanel } from "@/components/dashboard/voice-call-panel";
 import { ConvertToAccount } from "@/components/leads/convert-to-account";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
@@ -11,7 +12,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getSmsMessagesForLead } from "@/lib/sms/queries";
 import { isSmsSendingEnabled } from "@/lib/sms/config";
-import type { SmsMessage } from "@/lib/leads/types";
+import { getVoiceCallsForLead } from "@/lib/voice/queries";
+import { isVoiceEnabled } from "@/lib/voice/config";
+import type { SmsMessage, VoiceCall } from "@/lib/leads/types";
 
 export default async function LeadDetailPage({
   params,
@@ -76,6 +79,34 @@ export default async function LeadDetailPage({
     smsMessages = [];
   }
 
+  // Click-to-call context. voice_calls RLS already scopes these to the caller,
+  // so no assigned_to filter is needed here.
+  let voiceCalls: VoiceCall[] = [];
+  try {
+    voiceCalls = await getVoiceCallsForLead(supabase, id, 8);
+  } catch {
+    voiceCalls = [];
+  }
+
+  // The agent's own callback number — the phone Twilio rings first. Agents can
+  // only read their own agent_profiles row, so this returns theirs or nothing.
+  let agentVoicePhone: string | null = null;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("agent_profiles")
+        .select("voice_phone")
+        .eq("user_id", user.id)
+        .maybeSingle<{ voice_phone: string | null }>();
+      agentVoicePhone = profile?.voice_phone ?? null;
+    }
+  } catch {
+    agentVoicePhone = null;
+  }
+
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       <DashboardHeader
@@ -96,6 +127,13 @@ export default async function LeadDetailPage({
         leadId={lead.id}
         businessName={lead.business_name}
         alreadyConverted={converted}
+      />
+
+      <VoiceCallPanel
+        lead={lead}
+        calls={voiceCalls}
+        voiceEnabled={isVoiceEnabled()}
+        agentVoicePhone={agentVoicePhone}
       />
 
       <SmsPanel

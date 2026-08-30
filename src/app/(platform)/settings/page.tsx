@@ -24,6 +24,7 @@ import {
   Plug,
   CheckCircle2,
   XCircle,
+  PhoneCall,
 } from "lucide-react";
 
 interface Agent {
@@ -69,15 +70,26 @@ export default function SettingsPage() {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [editTemplateData, setEditTemplateData] = useState<Partial<Template>>({});
 
+  // The caller's own Twilio callback number — the phone click-to-call rings
+  // first. Self-service for this one column only; everything else on an
+  // agent_profiles row is still admin-write.
+  const [voicePhone, setVoicePhone] = useState("");
+  const [savingVoicePhone, setSavingVoicePhone] = useState(false);
+  const [voicePhoneMessage, setVoicePhoneMessage] = useState<
+    { tone: "ok" | "error"; text: string } | null
+  >(null);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/agents").then((r) => r.json()).catch(() => ({ agents: [] })),
       fetch("/api/outreach/templates").then((r) => r.json()).catch(() => ({ templates: [] })),
       fetch("/api/smart-lists").then((r) => r.json()).catch(() => ({ smart_lists: [] })),
-    ]).then(([agentData, templateData, smartListData]) => {
+      fetch("/api/my/voice-phone").then((r) => r.json()).catch(() => ({ voice_phone: null })),
+    ]).then(([agentData, templateData, smartListData, voiceData]) => {
       setAgents(agentData.agents ?? []);
       setTemplates(templateData.templates ?? []);
       setSmartLists(smartListData.smart_lists ?? []);
+      setVoicePhone(voiceData.voice_phone ?? "");
       setLoading(false);
     });
   }, []);
@@ -87,6 +99,39 @@ export default function SettingsPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
+  }
+
+  async function handleSaveVoicePhone() {
+    setSavingVoicePhone(true);
+    setVoicePhoneMessage(null);
+    try {
+      const res = await fetch("/api/my/voice-phone", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice_phone: voicePhone.trim() || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        // The server normalises to E.164; show what it actually stored.
+        setVoicePhone(data.voice_phone ?? "");
+        setVoicePhoneMessage({
+          tone: "ok",
+          text: data.voice_phone
+            ? `Saved. Twilio will ring ${data.voice_phone}.`
+            : "Cleared. Twilio calling is off for your account until you set a number.",
+        });
+      } else {
+        setVoicePhoneMessage({
+          tone: "error",
+          text: data.error ?? "Could not save your callback number.",
+        });
+      }
+    } catch (err) {
+      console.error("Save voice phone error:", err);
+      setVoicePhoneMessage({ tone: "error", text: "Network error while saving." });
+    } finally {
+      setSavingVoicePhone(false);
+    }
   }
 
   async function handleCreateAgent() {
@@ -163,6 +208,52 @@ export default function SettingsPage() {
         <h1 className="text-xl font-bold text-zinc-50 sm:text-2xl">Settings</h1>
         <p className="mt-1 text-sm text-zinc-400">Manage your Tweak&amp;Build OS configuration</p>
       </div>
+
+      {/* Twilio calling — the agent's own callback number */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <PhoneCall className="h-5 w-5 text-lime-400" />
+            Twilio Calling
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-zinc-400">
+            When you press <strong className="text-zinc-200">Call via Twilio</strong>{" "}
+            on a lead, Twilio rings this number first. Answer it and you are
+            connected to the prospect, who sees the Tweak &amp; Build number —
+            never this one.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={voicePhone}
+              onChange={(e) => setVoicePhone(e.target.value)}
+              placeholder="+18622984988"
+              className="flex-1"
+              inputMode="tel"
+            />
+            <Button size="sm" onClick={handleSaveVoicePhone} disabled={savingVoicePhone}>
+              <Save className="h-4 w-4" />
+              {savingVoicePhone ? "Saving..." : "Save"}
+            </Button>
+          </div>
+          <p className="text-xs text-zinc-500">
+            US numbers may be typed any way you like; anything else needs full
+            E.164 form. Leave it blank to turn Twilio calling off for your
+            account. This is the only field on your profile you can change
+            yourself — rates, role, and payout details are admin-only.
+          </p>
+          {voicePhoneMessage && (
+            <p
+              className={`text-sm ${
+                voicePhoneMessage.tone === "ok" ? "text-lime-400" : "text-red-400"
+              }`}
+            >
+              {voicePhoneMessage.text}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Team Management */}
       <Card>
@@ -335,6 +426,10 @@ export default function SettingsPage() {
               { name: "NEXT_PUBLIC_SUPABASE_URL", description: "Supabase project URL" },
               { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", description: "Supabase public anon key" },
               { name: "SUPABASE_SERVICE_ROLE_KEY", description: "Supabase service-role key (server-side only)" },
+              { name: "TWILIO_ACCOUNT_SID", description: "Twilio account — shared by SMS and voice" },
+              { name: "TWILIO_AUTH_TOKEN", description: "Twilio auth token — also validates inbound webhook signatures" },
+              { name: "TWILIO_FROM_NUMBER", description: "The number prospects see. Must be voice-capable" },
+              { name: "TWILIO_VOICE_ENABLED", description: "Click-to-call kill switch. No call is placed while false" },
             ].map((key) => (
               <div key={key.name} className="flex flex-col gap-2 rounded-lg bg-zinc-800/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">

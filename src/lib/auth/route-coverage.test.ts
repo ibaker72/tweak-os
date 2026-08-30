@@ -31,14 +31,16 @@ const files = routeFiles(API_DIR);
  * Routes authenticated by something other than a session cookie, because their
  * caller is a machine with no session:
  *
- *   the Twilio webhook verifies an HMAC signature;
+ *   the Twilio webhooks verify an HMAC signature;
  *   the nightly cron verifies a bearer CRON_SECRET.
  *
- * These are also the only two places the service-role client is allowed —
- * there is no user to act as, so there is no RLS-bound client to use.
+ * These are also the only places the service-role client is allowed — there is
+ * no user to act as, so there is no RLS-bound client to use.
  */
 const PUBLIC_ROUTES = [
   "webhooks/twilio/sms/route.ts",
+  "webhooks/twilio/voice/bridge/route.ts",
+  "webhooks/twilio/voice/status/route.ts",
   "webhooks/stripe/route.ts",
   "cron/commissions/accrue/route.ts",
 ];
@@ -132,6 +134,8 @@ describe("API route guard coverage", () => {
       "app/api/cron/commissions/accrue/route.ts",
       "app/api/webhooks/stripe/route.ts",
       "app/api/webhooks/twilio/sms/route.ts",
+      "app/api/webhooks/twilio/voice/bridge/route.ts",
+      "app/api/webhooks/twilio/voice/status/route.ts",
       "lib/supabase/service.ts",
     ]);
   });

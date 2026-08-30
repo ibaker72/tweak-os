@@ -99,6 +99,7 @@ build if it appears anywhere else, or if any route handler is left unguarded.
 | Outreach | `/api/outreach`, `/outreach/sequences`, `/outreach/templates` |
 | Proposals | `/api/proposals`, `/proposals/generate`, `/proposals/send` |
 | SMS | `/api/sms/send`, `/api/sms/status`, `/api/webhooks/twilio/sms` |
+| Voice | `/api/voice/call`, `/api/my/voice-phone`, `/api/webhooks/twilio/voice/bridge`, `/api/webhooks/twilio/voice/status` |
 | Shared | `/api/shared/stats`, `/shared/action-items`, `/shared/activity`, `/shared/search` |
 | Config | `/api/agents`, `/api/smart-lists`, `/api/saved-searches` |
 
@@ -108,6 +109,11 @@ build if it appears anywhere else, or if any route handler is left unguarded.
 `outreach_sequences`, `outreach_templates`, `proposals`, `activity_log`,
 `import_jobs`, `enrichment_jobs`, `saved_searches`, `smart_lists`,
 `google_places_cache`.
+
+**Communication.** `sms_messages` logs every SMS, sent or blocked.
+`voice_calls` (migration `00021_twilio_voice_calls.sql`) logs every
+click-to-call attempt — including the ones suppressed by the kill switch,
+which are history too. Neither stores a recording.
 
 **Revenue** (migration `00016_revenue_core.sql`). `leads` used to be prospect,
 contact, and customer at once, which breaks as soon as a client signs twice,
@@ -159,6 +165,7 @@ RLS is enabled on all 23 tables, with role- and ownership-aware policies
 | Admin | Everything |
 | Agent | Select/update their own assigned leads. No insert, no delete, and cannot reassign a lead away from themselves |
 | Agent (child records) | outreach_sequences, activity_log, proposals, sms_messages scoped through the parent lead's assignment |
+| Agent (voice_calls) | Read their own calls and calls on their leads. No write of any kind — `request_voice_call()` creates rows, Twilio's webhook updates them |
 | Agent (config tables) | Read-only; admins write |
 | Anyone | Orphaned tables (`growth_*`, `site_configs`, `lead_audits`, `automation_logs`) are admin-only |
 
@@ -203,6 +210,12 @@ while a text field has focus. Every action writes to `activity_log`, and every
 action is optimistic — on failure the row is rolled back and the error shown,
 because an optimistic UI that leaves a failed write on screen is worse than no
 optimism at all.
+
+Placing a real Twilio call is the one action with no shortcut: it is a labelled
+button on rows that have a phone number, behind a confirmation dialog naming
+the business. `c` still opens the log-a-call composer it always has. A keystroke
+that rings a stranger's phone is not something anyone should be able to hit by
+accident.
 
 ### /my/pipeline
 
@@ -271,6 +284,98 @@ caller's override, alongside the team original so the UI can offer a revert.
 `activity_log_id`, tying a send to the template used and the activity row it
 produced. Follow-up reminders write `leads.next_action_date`, which is what
 puts the lead back at the top of the queue.
+
+## Click-to-call
+
+One button on a lead places a real phone call, and the agent's personal number
+never reaches the prospect.
+
+```
+agent presses "Call via Twilio"
+        │
+        ▼
+POST /api/voice/call  { lead_id }          ← the entire request body
+        │
+        ▼
+request_voice_call(lead_id)                 ← SECURITY DEFINER
+   reads the prospect's number from the lead
+   reads the agent's callback number from their own profile
+   writes a voice_calls row with a random one-off token
+        │
+        ▼
+Twilio Calls API:  To = agent's phone,  From = TWILIO_FROM_NUMBER
+        │
+        ▼
+agent answers ──▶ Twilio fetches /api/webhooks/twilio/voice/bridge?token=…
+                     looks the prospect's number up by token
+                     returns <Dial callerId="TWILIO_FROM_NUMBER">
+        │
+        ▼
+prospect's phone rings, showing the Tweak & Build number
+```
+
+**The design decision:** the client never names a phone number. `lead_id` is
+the whole input, and the route rejects a body carrying anything else rather
+than ignoring it. Every number the dialer uses is read out of the database
+inside a definer function, and the callback URL carries an opaque per-call
+token instead of a phone number — so there is no request anyone can craft that
+turns the company's caller ID into an open dialer. Twilio's request signature
+covers the URL, so a swapped token fails before it is read.
+
+**What agents can do to `voice_calls`:** read their own. That is all. There is
+no INSERT, UPDATE or DELETE policy for them, so call history cannot be
+rewritten and a call record cannot be conjured with a number of someone's
+choosing. `request_voice_call()` creates the row, the agent gets exactly one
+write to close it out (`record_voice_call_result()`, which only moves a row out
+of `requested`), and everything after that belongs to Twilio's status callback
+through the service role.
+
+### Setting an agent's callback number
+
+`agent_profiles.voice_phone` is the phone Twilio rings first. Without it the
+button is disabled and says so. Two ways to set it:
+
+- **The agent, themselves** — Settings → Twilio Calling. This goes through
+  `set_my_voice_phone()`, a definer function that touches that one column on
+  the caller's own row. Agents still have no UPDATE policy on
+  `agent_profiles`; widening one would have handed them their own commission
+  rate.
+- **An admin, for someone else** — `POST /api/admin/team` with
+  `{ action: "update", agent_id, voice_phone: "+18622984988" }`.
+
+US numbers can be typed any way; anything else needs full E.164. A `CHECK`
+constraint and `private.normalize_phone()` (a SQL mirror of the TypeScript
+normaliser) keep the stored value dialable.
+
+### The kill switch
+
+`TWILIO_VOICE_ENABLED` defaults to `false` and is deliberately **not** coupled
+to `SMS_SENDING_ENABLED` — A2P approval and voice billing are unrelated events,
+and turning one on must never turn the other on. While it is false no Twilio
+request is made at all, the attempt is still recorded with status `disabled`,
+and the UI says the call was not placed.
+
+### What a call does not do
+
+- **It does not mark the lead contacted.** `lifecycle_status` and
+  `contacted_at` are untouched by every path here. A ringing phone is not a
+  conversation, and an accepted API request is certainly not one. The activity
+  trail records `lead.call_attempted`, `lead.call_connected` or
+  `lead.call_not_connected` and stops there. "Log Call" remains the way to say
+  contact happened, and is unchanged.
+- **It does not record.** No recording parameter is ever sent, no recording
+  column exists, and migration `00021` fails if one is ever added.
+- **It does not auto-dial.** One lead at a time, from an explicit button press
+  behind a confirmation dialog. In `/my/queue` the `c` shortcut still opens the
+  log-a-call composer it always has — no keystroke rings a phone.
+
+### Live testing
+
+The Twilio account is suspended for billing, so live calls cannot complete
+yet. Twilio rejects the Calls API request, the app records the call as `failed`
+with Twilio's own message, and the lead page shows it. That is the designed
+behaviour for this state, not a bug — and it is why the application logic is
+tested end to end against mocked Twilio responses rather than a live account.
 
 ## The commission engine
 

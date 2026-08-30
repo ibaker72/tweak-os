@@ -54,6 +54,45 @@ export interface SmsMessage {
   received_at: string | null;
 }
 
+export type VoiceCallStatus =
+  | "requested"
+  | "disabled"
+  | "initiated"
+  | "ringing"
+  | "in-progress"
+  | "completed"
+  | "busy"
+  | "no-answer"
+  | "failed"
+  | "canceled";
+
+/**
+ * One click-to-call attempt. Written by request_voice_call() and updated by
+ * Twilio's status callback; never edited by an agent.
+ *
+ * Note there is no recording field. This phase does not record calls, and the
+ * 00021 migration fails if a column for one ever appears.
+ */
+export interface VoiceCall {
+  id: string;
+  lead_id: string;
+  agent_id: string;
+  bridge_token: string;
+  twilio_call_sid: string | null;
+  agent_phone: string | null;
+  prospect_phone: string | null;
+  from_number: string | null;
+  status: VoiceCallStatus;
+  direction: "outbound" | "inbound";
+  error_message: string | null;
+  started_at: string | null;
+  answered_at: string | null;
+  completed_at: string | null;
+  duration_seconds: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SocialLinks {
   linkedin?: string | null;
   twitter?: string | null;

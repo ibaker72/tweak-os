@@ -21,6 +21,15 @@ const updateSchema = z
     default_commission_rate_bps: z.number().int().min(0).max(10_000).optional(),
     inbound_commission_rate_bps: z.number().int().min(0).max(10_000).optional(),
     partner_type: z.enum(["internal_agent", "referral_partner"]).optional(),
+    // The phone Twilio rings first on a click-to-call. E.164 only — the column
+    // has the same CHECK, and rejecting it here gives a readable error instead
+    // of a constraint violation. Agents can set their own through
+    // PATCH /api/my/voice-phone; this is how an admin sets someone else's.
+    voice_phone: z
+      .string()
+      .regex(/^\+[1-9]\d{6,14}$/, "Use full E.164 form, e.g. +18622984988")
+      .nullable()
+      .optional(),
     employment_classification: z
       .enum(["contractor_1099", "employee_w2", "unset"])
       .optional(),
@@ -62,7 +71,7 @@ export async function GET() {
           "id, user_id, display_name, email, role, is_active, started_at, " +
             "partner_type, default_commission_rate_bps, inbound_commission_rate_bps, " +
             "payout_method, payout_handle, employment_classification, legal_name, " +
-            "tax_address, tax_id_last4, created_at"
+            "tax_address, tax_id_last4, voice_phone, created_at"
         )
         .order("display_name"),
       guard.supabase.from("deals").select("id, closed_by_agent_id, status, commission_rate_bps"),
@@ -190,7 +199,10 @@ export async function POST(request: NextRequest) {
     if (error) {
       if (error.code === "23514") {
         return NextResponse.json(
-          { error: "A rate must be between 0 and 10000 basis points" },
+          {
+            error:
+              "A rate must be between 0 and 10000 basis points, and a callback phone must be E.164 (e.g. +18622984988)",
+          },
           { status: 400 }
         );
       }

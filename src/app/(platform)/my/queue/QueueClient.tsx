@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Phone, Mail, StickyNote, CalendarClock, ArrowRight, Loader2 } from "lucide-react";
+import { Phone, PhoneCall, Mail, StickyNote, CalendarClock, ArrowRight, Loader2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 /**
  * The daily driver.
@@ -12,6 +13,12 @@ import { Phone, Mail, StickyNote, CalendarClock, ArrowRight, Loader2 } from "luc
  * action date, and Enter opens the lead. Every action updates the row
  * immediately and reconciles against the server afterwards; a failure rolls
  * the row back and says so rather than leaving a lie on screen.
+ *
+ * Placing a real Twilio call is the one action with no keyboard shortcut, and
+ * that is deliberate. `c` still opens the log-a-call composer it always has —
+ * a keystroke that rings someone's phone is not something anyone should be
+ * able to hit by accident. The Twilio call is its own labelled button and goes
+ * through a confirmation dialog naming the business before anything dials.
  */
 
 export interface QueueLead {
@@ -72,6 +79,9 @@ export function QueueClient({ initialLeads }: { initialLeads: QueueLead[] }) {
   const [composer, setComposer] = useState<{ kind: ActionKind; leadId: string } | null>(
     null
   );
+  // The lead a Twilio call has been requested for and not yet confirmed.
+  const [callTarget, setCallTarget] = useState<QueueLead | null>(null);
+  const [calling, setCalling] = useState(false);
   const rowRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   const current = leads[cursor];
@@ -137,6 +147,36 @@ export function QueueClient({ initialLeads }: { initialLeads: QueueLead[] }) {
     },
     [leads, flash]
   );
+
+  /**
+   * Place a Twilio click-to-call. Only ever reached from the confirm dialog.
+   *
+   * Sends lead_id and nothing else — the prospect's number, the agent's
+   * callback number and the caller ID are all resolved server-side.
+   */
+  const placeCall = useCallback(async () => {
+    const lead = callTarget;
+    if (!lead) return;
+    setCalling(true);
+    try {
+      const res = await fetch("/api/voice/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: lead.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        flash(data.message ?? "Calling your phone…");
+      } else {
+        flash(data.message ?? "Could not place the call", "error");
+      }
+    } catch {
+      flash("Network error while placing the call", "error");
+    } finally {
+      setCalling(false);
+      setCallTarget(null);
+    }
+  }, [callTarget, flash]);
 
   // Keyboard handling. Ignored while a text field has focus so typing a note
   // does not fire the shortcuts.
@@ -273,6 +313,14 @@ export function QueueClient({ initialLeads }: { initialLeads: QueueLead[] }) {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1">
+                  {lead.phone && (
+                    <IconButton
+                      title="Call via Twilio — rings your phone, then bridges"
+                      onClick={() => setCallTarget(lead)}
+                    >
+                      <PhoneCall className="h-3.5 w-3.5 text-lime-500" />
+                    </IconButton>
+                  )}
                   <IconButton
                     title="Log call (c)"
                     onClick={() => setComposer({ kind: "log_call", leadId: lead.id })}
@@ -323,6 +371,22 @@ export function QueueClient({ initialLeads }: { initialLeads: QueueLead[] }) {
           );
         })}
       </ul>
+
+      <ConfirmDialog
+        open={callTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !calling) setCallTarget(null);
+        }}
+        title={callTarget ? `Call ${callTarget.business_name}?` : "Call"}
+        description={
+          callTarget
+            ? `Twilio rings your own phone first. Answer it and you are connected to ${callTarget.phone}, who sees the Tweak & Build number. This places a real call.`
+            : ""
+        }
+        confirmLabel="Call now"
+        busy={calling}
+        onConfirm={placeCall}
+      />
 
       {toast && (
         <div
