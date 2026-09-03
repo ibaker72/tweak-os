@@ -21,8 +21,7 @@ import {
   Eye,
   Mail,
   Pencil,
-  Sun,
-  Moon,
+  Monitor,
   ExternalLink,
   Archive,
   Plus,
@@ -149,7 +148,7 @@ export function ProposalsPageInner() {
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
 
-  const [previewTheme, setPreviewTheme] = useState<"dark" | "light">("dark");
+  const [previewTheme, setPreviewTheme] = useState<"app" | "email">("app");
 
   const [toast, setToast] = useState<{ msg: string; tone: ToastTone; open: boolean }>({
     msg: "",
@@ -939,26 +938,26 @@ export function ProposalsPageInner() {
                   )}
                   <div className="inline-flex overflow-hidden rounded-md border border-zinc-800">
                     <button
-                      onClick={() => setPreviewTheme("dark")}
+                      onClick={() => setPreviewTheme("app")}
                       className={`flex items-center gap-1 px-2.5 py-1 text-xs ${
-                        previewTheme === "dark"
+                        previewTheme === "app"
                           ? "bg-zinc-800 text-zinc-100"
                           : "text-zinc-400 hover:bg-zinc-800/60"
                       }`}
-                      aria-pressed={previewTheme === "dark"}
+                      aria-pressed={previewTheme === "app"}
                     >
-                      <Moon className="h-3 w-3" /> App
+                      <Monitor className="h-3 w-3" /> App
                     </button>
                     <button
-                      onClick={() => setPreviewTheme("light")}
+                      onClick={() => setPreviewTheme("email")}
                       className={`flex items-center gap-1 px-2.5 py-1 text-xs ${
-                        previewTheme === "light"
+                        previewTheme === "email"
                           ? "bg-zinc-800 text-zinc-100"
                           : "text-zinc-400 hover:bg-zinc-800/60"
                       }`}
-                      aria-pressed={previewTheme === "light"}
+                      aria-pressed={previewTheme === "email"}
                     >
-                      <Sun className="h-3 w-3" /> Email/PDF
+                      <Mail className="h-3 w-3" /> Email/PDF
                     </button>
                   </div>
                 </div>

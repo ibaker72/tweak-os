@@ -3,26 +3,27 @@
 import { Logo } from "@/components/brand/Logo";
 import { renderMarkdown } from "@/lib/markdown";
 import { sectionsToMarkdown } from "@/lib/proposals/sections";
+import { PROPOSAL_THEME as T } from "@/lib/proposals/theme";
 import { SECTION_ORDER, SECTION_TITLES, type ProposalSections } from "@/lib/proposals/types";
 
 interface ProposalPreviewProps {
   sections: ProposalSections;
   clientName: string;
   websiteUrl?: string;
-  /** Dark = in-app preview. Light = the email/PDF version. */
-  theme?: "dark" | "light";
+  /** "app" = in-app reading view. "email" = exactly what the client receives. */
+  theme?: "app" | "email";
 }
 
 export function ProposalPreview({
   sections,
   clientName,
   websiteUrl,
-  theme = "dark",
+  theme = "app",
 }: ProposalPreviewProps) {
   const hasContent = SECTION_ORDER.some((k) => (sections[k] ?? "").trim().length > 0);
 
-  if (theme === "light") {
-    return <LightPreview sections={sections} clientName={clientName} websiteUrl={websiteUrl} />;
+  if (theme === "email") {
+    return <EmailPreview sections={sections} clientName={clientName} websiteUrl={websiteUrl} />;
   }
 
   if (!hasContent) {
@@ -54,7 +55,12 @@ export function ProposalPreview({
   );
 }
 
-function LightPreview({
+/**
+ * A faithful on-screen rendition of the email/PDF the client receives —
+ * near-black canvas, charcoal card, acid-lime accents. Colors come from
+ * PROPOSAL_THEME so this preview can never drift from the real renderer.
+ */
+function EmailPreview({
   sections,
   clientName,
   websiteUrl,
@@ -71,91 +77,126 @@ function LightPreview({
   });
 
   return (
-    <div className="rounded-lg border border-zinc-300 bg-white text-zinc-900 shadow-sm">
-      <div className="border-b border-zinc-200 px-7 py-5">
-        <Logo size={32} tone="light" />
-      </div>
-      <div className="px-7 pt-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-          Proposal
-        </p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900">
-          {clientName || "Your Business"}
-        </h1>
-        {websiteUrl && <p className="text-sm text-zinc-500">{websiteUrl}</p>}
-        <p className="mt-1 text-xs text-zinc-500">{date}</p>
-      </div>
-      <div className="px-7 pb-7 pt-2">
-        {!hasContent ? (
-          <p className="py-10 text-center text-sm text-zinc-400">
-            The light email/PDF version of the proposal will appear here.
+    <div className="rounded-xl p-4" style={{ background: T.background }}>
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{ background: T.surface, borderColor: T.border }}
+      >
+        <div className="px-7 py-5">
+          <Logo size={28} />
+          <div
+            className="mt-4 h-[3px] w-11 rounded-full"
+            style={{ background: T.accent }}
+          />
+        </div>
+
+        <div className="px-7 pt-2">
+          <p
+            className="text-[11px] font-bold uppercase tracking-[0.16em]"
+            style={{ color: T.textMuted }}
+          >
+            Proposal
           </p>
-        ) : (
-          SECTION_ORDER.map((key) => {
-            const body = sections[key]?.trim();
-            if (!body) return null;
-            return (
-              <section key={key} className="mt-8 first:mt-4">
-                <h2 className="text-lg font-bold tracking-tight text-zinc-900">
-                  {SECTION_TITLES[key]}
-                </h2>
-                <div className="mt-1 mb-3 h-[3px] w-8 rounded bg-lime-500" />
-                <div
-                  className="proposal-light"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
-                />
-              </section>
-            );
-          })
-        )}
-      </div>
-      <div className="flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-7 py-4 text-xs">
-        <span className="text-zinc-500">Tweak &amp; Build · New Jersey</span>
-        <a
-          href="https://tweakandbuild.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold text-lime-600 hover:underline"
+          <h1
+            className="mt-1.5 text-2xl font-bold tracking-tight"
+            style={{ color: T.text }}
+          >
+            {clientName || "Your Business"}
+          </h1>
+          {websiteUrl && (
+            <p className="mt-1 text-sm" style={{ color: T.textMuted }}>
+              {websiteUrl}
+            </p>
+          )}
+          <p className="mt-1 text-xs" style={{ color: T.textMuted }}>
+            {date}
+          </p>
+        </div>
+
+        <div className="px-7 pb-7 pt-2">
+          {!hasContent ? (
+            <p className="py-10 text-center text-sm" style={{ color: T.textSubtle }}>
+              The email/PDF version of the proposal will appear here.
+            </p>
+          ) : (
+            SECTION_ORDER.map((key) => {
+              const body = sections[key]?.trim();
+              if (!body) return null;
+              return (
+                <section key={key} className="mt-8 first:mt-4">
+                  <h2
+                    className="text-lg font-bold tracking-tight"
+                    style={{ color: T.text }}
+                  >
+                    {SECTION_TITLES[key]}
+                  </h2>
+                  <div
+                    className="mb-3 mt-2 h-[3px] w-8 rounded-full"
+                    style={{ background: T.accent }}
+                  />
+                  <div
+                    className="proposal-email"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
+                  />
+                </section>
+              );
+            })
+          )}
+        </div>
+
+        <div
+          className="flex items-center justify-between gap-3 border-t px-7 py-4 text-xs"
+          style={{ background: T.surfaceRaised, borderColor: T.border }}
         >
-          tweakandbuild.com
-        </a>
+          <span style={{ color: T.textMuted }}>Sent via Tweak &amp; Build OS</span>
+          <a
+            href="https://tweakandbuild.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md px-3.5 py-2 text-sm font-semibold"
+            style={{ background: T.accentSolid, color: T.onAccent }}
+          >
+            tweakandbuild.com
+          </a>
+        </div>
       </div>
 
       <style jsx>{`
-        :global(.proposal-light h2) {
-          color: #0f172a !important;
+        :global(.proposal-email h2),
+        :global(.proposal-email h3) {
+          color: ${T.text} !important;
           border-bottom: none !important;
           padding: 0 !important;
           font-size: 1rem !important;
         }
-        :global(.proposal-light h3) {
-          color: #0f172a !important;
+        :global(.proposal-email p),
+        :global(.proposal-email li) {
+          color: ${T.textBody} !important;
         }
-        :global(.proposal-light p),
-        :global(.proposal-light li) {
-          color: #1e293b !important;
+        :global(.proposal-email strong) {
+          color: ${T.text} !important;
         }
-        :global(.proposal-light strong) {
-          color: #0f172a !important;
+        :global(.proposal-email a) {
+          color: ${T.accent} !important;
+          text-decoration: underline !important;
         }
-        :global(.proposal-light a) {
-          color: #65a30d !important;
+        :global(.proposal-email table) {
+          border-color: ${T.border} !important;
         }
-        :global(.proposal-light th) {
-          background: #ecfccb !important;
-          color: #0f172a !important;
-          border-color: #e2e8f0 !important;
+        :global(.proposal-email th) {
+          background: ${T.surfaceRaised} !important;
+          color: ${T.accent} !important;
+          border-color: ${T.border} !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.08em !important;
         }
-        :global(.proposal-light td) {
-          color: #0f172a !important;
-          border-color: #e2e8f0 !important;
+        :global(.proposal-email td) {
+          color: ${T.text} !important;
+          border-color: ${T.border} !important;
         }
-        :global(.proposal-light table) {
-          border-color: #e2e8f0 !important;
-        }
-        :global(.proposal-light code) {
-          background: #f1f5f9 !important;
-          color: #0f172a !important;
+        :global(.proposal-email code) {
+          background: ${T.surfaceRaised} !important;
+          color: ${T.accent} !important;
         }
       `}</style>
     </div>
