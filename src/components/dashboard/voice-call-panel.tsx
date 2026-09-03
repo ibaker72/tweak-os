@@ -20,6 +20,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDate } from "@/lib/utils";
+import { formatPhoneNumber, maskPhoneNumber } from "@/lib/phone";
 import type { Lead, VoiceCall, VoiceCallStatus } from "@/lib/leads/types";
 
 /**
@@ -177,13 +178,21 @@ export function VoiceCallPanel({
             <p className="text-xs font-medium uppercase text-zinc-500">Prospect</p>
             <p className="flex items-center gap-1.5 text-sm text-zinc-200">
               <Phone className="h-3.5 w-3.5 text-zinc-500" />
-              {hasPhone ? prospectPhone : "No phone number on this lead"}
+              {hasPhone
+                ? formatPhoneNumber(prospectPhone)
+                : "No phone number on this lead"}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase text-zinc-500">Rings your phone</p>
+            {/* Masked: enough to recognise it as yours, and it is sitting on a
+                page full of prospect data it has no business being read off. */}
             <p className="text-sm text-zinc-200">
-              {agentVoicePhone ?? (
+              {agentVoicePhone ? (
+                <span title="Your callback number, set in Settings">
+                  {maskPhoneNumber(agentVoicePhone)}
+                </span>
+              ) : (
                 <Link href="/settings" className="text-lime-400 underline underline-offset-2">
                   Add your callback number
                 </Link>
@@ -239,7 +248,11 @@ export function VoiceCallPanel({
         )}
         {hasPhone && !hasCallbackNumber && (
           <p className="text-sm text-amber-300">
-            Add your callback phone number before using Twilio calling.
+            Add your callback phone number before using Twilio calling.{" "}
+            <Link href="/settings" className="underline underline-offset-2">
+              Open Settings
+            </Link>
+            .
           </p>
         )}
 
@@ -321,7 +334,11 @@ export function VoiceCallPanel({
         title={`Call ${lead.business_name}?`}
         description={
           voiceEnabled
-            ? `Twilio will ring ${agentVoicePhone ?? "your phone"} first. Answer it and you will be connected to ${prospectPhone}, who sees the Tweak & Build number.`
+            ? `Twilio will ring ${
+                agentVoicePhone ? maskPhoneNumber(agentVoicePhone) : "your phone"
+              } first. Answer it and you will be connected to ${formatPhoneNumber(
+                prospectPhone
+              )}, who sees the Tweak & Build number.`
             : "Twilio Voice is currently disabled, so no call will be placed. The attempt will be recorded in this lead's call history."
         }
         confirmLabel={voiceEnabled ? "Call now" : "Record the attempt"}

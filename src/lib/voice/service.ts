@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  callbackBaseUrlProblem,
   readVoiceConfig,
   voiceConfigProblem,
   type VoiceConfig,
@@ -170,7 +171,12 @@ export async function initiateVoiceCall(
   }
 
   // --- Enabled but not actually configured --------------------------------
-  const problem = voiceConfigProblem(config);
+  //
+  // The base URL is part of the configuration here, not an implementation
+  // detail: it is what Twilio fetches the bridge TwiML from, so a call placed
+  // against an origin Twilio cannot reach rings the agent's phone and then
+  // goes nowhere. Failing before the call is placed is the honest outcome.
+  const problem = voiceConfigProblem(config) ?? callbackBaseUrlProblem(input.baseUrl);
   if (problem) {
     await recordResult(supabase, call.call_id, "failed", {
       from: config.fromNumber,

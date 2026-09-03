@@ -536,35 +536,176 @@ describeDb("Twilio voice calls", () => {
   // set_my_voice_phone
   // -------------------------------------------------------------------------
 
+  describe("the canonical callback-number column", () => {
+    it("lives on agent_profiles as a nullable text column", async () => {
+      const { rows } = await client.query(`
+        select data_type, is_nullable
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'agent_profiles'
+          and column_name = 'voice_phone'
+      `);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].data_type).toBe("text");
+      // Blank means "this agent has not set one", which is a real state and
+      // must not need a sentinel value.
+      expect(rows[0].is_nullable).toBe("YES");
+    });
+
+    it("is the only callback-number column in the schema", async () => {
+      // Two places to store it is how Settings writes one and the dialer reads
+      // the other. There is one column and there is no `profiles` table.
+      const { rows } = await client.query(`
+        select table_name, column_name
+        from information_schema.columns
+        where table_schema = 'public'
+          and (column_name like '%callback%phone%'
+               or column_name like '%callback_number%'
+               or column_name = 'voice_phone')
+      `);
+      expect(rows).toEqual([
+        { table_name: "agent_profiles", column_name: "voice_phone" },
+      ]);
+
+      const { rows: profiles } = await client.query(`
+        select table_name from information_schema.tables
+        where table_schema = 'public' and table_name = 'profiles'
+      `);
+      expect(profiles).toEqual([]);
+    });
+
+    it("only accepts E.164", async () => {
+      await expect(
+        client.query(
+          "update agent_profiles set voice_phone = '8622984988' where id = $1",
+          [ids.agentAAgentId]
+        )
+      ).rejects.toThrow(/agent_profiles_voice_phone_ck/);
+
+      await expect(
+        client.query(
+          "update agent_profiles set voice_phone = '+0123456789' where id = $1",
+          [ids.agentAAgentId]
+        )
+      ).rejects.toThrow(/agent_profiles_voice_phone_ck/);
+    });
+
+    it("an agent can read their own and nobody else's", async () => {
+      const own = await asUser(client, ids.agentAUserId, (q) =>
+        q.rows("select voice_phone from agent_profiles where id = $1", [
+          ids.agentAAgentId,
+        ])
+      );
+      expect(own).toHaveLength(1);
+      expect(own[0].voice_phone).toBe(AGENT_A_PHONE);
+
+      const teammate = await asUser(client, ids.agentAUserId, (q) =>
+        q.rows("select voice_phone from agent_profiles where id = $1", [
+          ids.agentBAgentId,
+        ])
+      );
+      expect(teammate).toEqual([]);
+    });
+
+    it("an agent cannot write it directly, only through the function", async () => {
+      const changed = await asUser(client, ids.agentAUserId, (q) =>
+        q.count("update agent_profiles set voice_phone = $2 where id = $1", [
+          ids.agentBAgentId,
+          "+15559998888",
+        ])
+      );
+      expect(changed).toBe(0);
+
+      const { rows } = await client.query(
+        "select voice_phone from agent_profiles where id = $1",
+        [ids.agentBAgentId]
+      );
+      expect(rows[0].voice_phone).toBe(AGENT_B_PHONE);
+    });
+
+    it("is not exposed through the teammate directory view", async () => {
+      const { rows } = await client.query(`
+        select column_name from information_schema.columns
+        where table_schema = 'public' and table_name = 'agent_directory'
+      `);
+      expect(rows.map((r) => r.column_name)).not.toContain("voice_phone");
+    });
+  });
+
   describe("set_my_voice_phone", () => {
-    async function setAs(userId: string, phone: string | null) {
+    async function setAs(userId: string, phone: string | null, clear = false) {
       return asUserCommitting(userId, async () => {
         const { rows } = await client.query(
-          "select public.set_my_voice_phone($1::text) as result",
-          [phone]
+          "select public.set_my_voice_phone($1::text, $2::boolean) as result",
+          [phone, clear]
         );
         return rows[0].result as Record<string, unknown>;
       });
     }
 
+    async function storedFor(agentId: string): Promise<string | null> {
+      const { rows } = await client.query(
+        "select voice_phone from agent_profiles where id = $1",
+        [agentId]
+      );
+      return rows[0].voice_phone as string | null;
+    }
+
     it("sets and normalises the caller's own number", async () => {
       const result = await setAs(ids.agentAUserId, "(973) 555-7777");
-      expect(result).toEqual({ ok: true, voice_phone: "+19735557777" });
+      expect(result).toEqual({
+        ok: true,
+        cleared: false,
+        voice_phone: "+19735557777",
+      });
 
-      const { rows } = await client.query(
-        "select voice_phone from agent_profiles where id = $1",
-        [ids.agentAAgentId]
-      );
-      expect(rows[0].voice_phone).toBe("+19735557777");
+      expect(await storedFor(ids.agentAAgentId)).toBe("+19735557777");
     });
 
-    it("clears the number when passed null or blank", async () => {
-      await setAs(ids.agentAUserId, null);
-      const { rows } = await client.query(
-        "select voice_phone from agent_profiles where id = $1",
-        [ids.agentAAgentId]
-      );
-      expect(rows[0].voice_phone).toBeNull();
+    it("returns the value it read back, not the value it computed", async () => {
+      // `ok: true` has to mean the column holds this number. The function
+      // re-selects after the UPDATE precisely so a write that did not land
+      // cannot be reported as a save.
+      const result = await setAs(ids.agentAUserId, "8622984988");
+      expect(result.voice_phone).toBe(await storedFor(ids.agentAAgentId));
+      expect(result.voice_phone).toBe("+18622984988");
+    });
+
+    it("refuses a blank number rather than treating it as an erase", async () => {
+      // The production bug: Save pressed on an empty field wiped a saved
+      // number and reported success. Erasing now has to be asked for.
+      const result = await setAs(ids.agentAUserId, null);
+      expect(result).toEqual({
+        ok: false,
+        reason: "blank_without_clear",
+        voice_phone: AGENT_A_PHONE,
+      });
+      expect(await storedFor(ids.agentAAgentId)).toBe(AGENT_A_PHONE);
+
+      const blank = await setAs(ids.agentAUserId, "   ");
+      expect(blank.ok).toBe(false);
+      expect(blank.reason).toBe("blank_without_clear");
+      expect(await storedFor(ids.agentAAgentId)).toBe(AGENT_A_PHONE);
+    });
+
+    it("clears the number when the caller explicitly asks to", async () => {
+      const result = await setAs(ids.agentAUserId, null, true);
+      expect(result).toEqual({ ok: true, cleared: true, voice_phone: null });
+      expect(await storedFor(ids.agentAAgentId)).toBeNull();
+    });
+
+    it("clears on a blank string with the clear flag too", async () => {
+      await setAs(ids.agentAUserId, "", true);
+      expect(await storedFor(ids.agentAAgentId)).toBeNull();
+    });
+
+    it("rejects a normalised number the column would refuse", async () => {
+      // normalize_phone() will produce +0… from a pasted string; the CHECK
+      // constraint will not accept it. Caught as a reason code rather than
+      // surfacing as a constraint violation.
+      const result = await setAs(ids.agentAUserId, "+0123456789");
+      expect(result).toEqual({ ok: false, reason: "invalid_phone" });
+      expect(await storedFor(ids.agentAAgentId)).toBe(AGENT_A_PHONE);
     });
 
     it("rejects a number it could not dial", async () => {
@@ -593,7 +734,10 @@ describeDb("Twilio voice calls", () => {
         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public' and p.proname = 'set_my_voice_phone'
       `);
-      expect(rows[0].args).toBe("p_phone text");
+      // Two parameters: the number and whether erasing it was intended.
+      // Neither of them names an agent.
+      expect(rows[0].args).toBe("p_phone text, p_clear boolean DEFAULT false");
+      expect(rows[0].args).not.toContain("agent");
     });
 
     it("does not open up the rest of the profile", async () => {

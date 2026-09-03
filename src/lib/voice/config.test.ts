@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
+  callbackBaseUrlProblem,
   isVoiceEnabled,
   readVoiceConfig,
   reconstructWebhookUrl,
@@ -19,6 +20,9 @@ beforeEach(() => {
   delete process.env.TWILIO_MESSAGING_SERVICE_SID;
   delete process.env.TWILIO_WEBHOOK_VALIDATE_SIGNATURE;
   delete process.env.APP_BASE_URL;
+  delete process.env.NEXT_PUBLIC_APP_URL;
+  delete process.env.TWILIO_VOICE_FROM_NUMBER;
+  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
 });
 
 afterEach(() => {
@@ -62,6 +66,22 @@ describe("readVoiceConfig", () => {
     expect(config.accountSid).toBe("AC123");
     expect(config.authToken).toBe("tok");
     expect(config.fromNumber).toBe("+18622984988");
+  });
+
+  it("prefers TWILIO_VOICE_FROM_NUMBER when the voice number differs", () => {
+    // A number can be SMS-capable without being voice-capable. The override
+    // exists for that; with it unset nothing changes.
+    process.env.TWILIO_FROM_NUMBER = "+18622984988";
+    expect(readVoiceConfig().fromNumber).toBe("+18622984988");
+
+    process.env.TWILIO_VOICE_FROM_NUMBER = "+19735550000";
+    expect(readVoiceConfig().fromNumber).toBe("+19735550000");
+  });
+
+  it("ignores a blank override rather than losing the caller ID to it", () => {
+    process.env.TWILIO_FROM_NUMBER = "+18622984988";
+    process.env.TWILIO_VOICE_FROM_NUMBER = "   ";
+    expect(readVoiceConfig().fromNumber).toBe("+18622984988");
   });
 
   it("has no messaging service SID — that is a Messaging API concept", () => {
@@ -142,6 +162,71 @@ describe("resolveCallbackBaseUrl", () => {
     expect(resolveCallbackBaseUrl(headers, "http://localhost:3000/api/voice/call")).toBe(
       "http://localhost:3000"
     );
+  });
+
+  it("prefers configuration over a forwarded host a caller could set", () => {
+    // Whatever this returns is the origin Twilio fetches TwiML from, and the
+    // TwiML decides which number gets dialed. A request header must not be
+    // able to point that at somebody else's server.
+    const attacker = new Headers({
+      "x-forwarded-proto": "https",
+      "x-forwarded-host": "attacker.example",
+      host: "attacker.example",
+    });
+
+    process.env.APP_BASE_URL = "https://app.tweakandbuild.com";
+    expect(resolveCallbackBaseUrl(attacker, "https://internal/x")).toBe(
+      "https://app.tweakandbuild.com"
+    );
+
+    delete process.env.APP_BASE_URL;
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.tweakandbuild.com";
+    expect(resolveCallbackBaseUrl(attacker, "https://internal/x")).toBe(
+      "https://app.tweakandbuild.com"
+    );
+
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "app.tweakandbuild.com";
+    expect(resolveCallbackBaseUrl(attacker, "https://internal/x")).toBe(
+      "https://app.tweakandbuild.com"
+    );
+  });
+
+  it("adds the scheme when the configured origin was given without one", () => {
+    process.env.APP_BASE_URL = "app.tweakandbuild.com/";
+    expect(resolveCallbackBaseUrl(new Headers(), "https://internal/x")).toBe(
+      "https://app.tweakandbuild.com"
+    );
+  });
+});
+
+describe("callbackBaseUrlProblem", () => {
+  it("passes a public https origin", () => {
+    expect(callbackBaseUrlProblem("https://app.tweakandbuild.com")).toBeNull();
+  });
+
+  it("refuses an origin Twilio cannot reach", () => {
+    for (const origin of [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://0.0.0.0:3000",
+      "http://10.0.0.4",
+      "http://192.168.1.20:3000",
+      "http://172.16.4.4",
+      "http://my-macbook.local:3000",
+    ]) {
+      const problem = callbackBaseUrlProblem(origin);
+      expect(problem, origin).not.toBeNull();
+      expect(problem, origin).toMatch(/APP_BASE_URL/);
+    }
+  });
+
+  it("refuses something that is not a URL at all", () => {
+    expect(callbackBaseUrlProblem("not a url")).toMatch(/APP_BASE_URL/);
+  });
+
+  it("refuses a non-http scheme", () => {
+    expect(callbackBaseUrlProblem("ftp://app.tweakandbuild.com")).toMatch(/http/);
   });
 });
 

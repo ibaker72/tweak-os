@@ -22,6 +22,7 @@ const leadPage = readFileSync(
   path.join(SRC, "app/(platform)/leads/[id]/page.tsx"),
   "utf8"
 );
+const settings = readFileSync(SRC + "/app/(platform)/settings/page.tsx", "utf8");
 
 describe("the lead page voice panel", () => {
   it("posts lead_id and nothing else", () => {
@@ -47,6 +48,13 @@ describe("the lead page voice panel", () => {
 
   it("disables the button without a callback number or on do-not-contact", () => {
     expect(panel).toContain("disabled={calling || !hasCallbackNumber || doNotContact}");
+  });
+
+  it("masks the agent's own number rather than printing it in full", () => {
+    // It is the agent's personal phone, displayed on a page of prospect data.
+    // Recognisable is the requirement; readable is not.
+    expect(panel).toContain("maskPhoneNumber(agentVoicePhone)");
+    expect(panel).not.toContain("{agentVoicePhone ?? (");
   });
 
   it("carries the exact copy for each refusal", () => {
@@ -100,7 +108,10 @@ describe("the lead page wires the panel with server-resolved state", () => {
 
   it("passes the caller's own callback number", () => {
     expect(leadPage).toContain("agentVoicePhone={agentVoicePhone}");
-    expect(leadPage).toContain('.eq("user_id", user.id)');
+    // Read through the shared accessor rather than an inline select, so this
+    // page and the Settings field cannot drift onto different columns.
+    expect(leadPage).toContain("getCallbackPhone(supabase, { userId: user.id })");
+    expect(leadPage).not.toContain('.select("voice_phone")');
   });
 
   it("loads call history through the RLS-bound client", () => {
@@ -181,5 +192,82 @@ describe("no Twilio configuration reaches the browser", () => {
     expect(panel).not.toContain("@/lib/voice/config");
     expect(panel).not.toContain("@/lib/voice/twilio");
     expect(queue).not.toContain("@/lib/voice/config");
+  });
+});
+
+describe("the Settings callback-number field", () => {
+  it("keeps the saved value and the input box as separate state", () => {
+    // One box serving as both is what let a grey placeholder read as a saved
+    // number, and an empty box read as "erase it".
+    expect(settings).toContain("const [savedVoicePhone, setSavedVoicePhone]");
+    expect(settings).toContain("const [voicePhoneDraft, setVoicePhoneDraft]");
+  });
+
+  it("shows what is actually stored, and says so when nothing is", () => {
+    expect(settings).toContain("Saved number");
+    expect(settings).toContain("formatPhoneNumber(savedVoicePhone)");
+    expect(settings).toContain("None saved");
+    expect(settings).toContain("Twilio calling off");
+  });
+
+  it("has no placeholder that could be mistaken for a saved number", () => {
+    // The original placeholder was a complete, real-looking number — the exact
+    // one the user believed they had entered.
+    const placeholders = [...settings.matchAll(/placeholder=\{?"([^"]*)"/g)].map(
+      (m) => m[1]
+    );
+    for (const value of placeholders) {
+      expect(
+        /\+?\d[\d\s().-]{6,}/.test(value),
+        `placeholder "${value}" looks like a phone number`
+      ).toBe(false);
+    }
+  });
+
+  it("cannot erase the number from an empty box", () => {
+    // Save is unavailable with nothing typed, and the request it sends never
+    // carries the clear flag.
+    expect(settings).toContain("voicePhoneDraft.trim().length === 0");
+    expect(settings).toContain('submitVoicePhone("save")');
+  });
+
+  it("erases only through an explicit, confirmed Remove", () => {
+    expect(settings).toContain("Remove your callback number?");
+    expect(settings).toContain('onConfirm={() => submitVoicePhone("clear")}');
+    expect(settings).toContain("setConfirmClearVoicePhone(true)");
+  });
+
+  it("sends the clear flag alongside the number, never a bare blank", () => {
+    expect(settings).toContain("voice_phone: clearing ? null : trimmed");
+    expect(settings).toContain("clear: clearing");
+  });
+
+  it("displays the value the server read back, not the one that was typed", () => {
+    expect(settings).toContain("const stored: string | null = data.voice_phone ?? null");
+    expect(settings).toContain("setSavedVoicePhone(stored)");
+  });
+
+  it("distinguishes a save from an erase from a failure", () => {
+    expect(settings).toContain('tone: "ok"');
+    expect(settings).toContain('tone: "warn"');
+    expect(settings).toContain('tone: "error"');
+    expect(settings).toContain("Callback number removed");
+  });
+
+  it("refreshes the router so the lead page stops showing the old value", () => {
+    // The lead page renders the number on the server; without this the client
+    // router cache can serve the previous render for up to its stale window.
+    const handler = settings.slice(
+      settings.indexOf("async function submitVoicePhone"),
+      settings.indexOf("async function handleCreateAgent")
+    );
+    expect(handler).toContain("router.refresh()");
+  });
+
+  it("writes through the API route rather than straight to the table", () => {
+    // A client-side update would need an agent UPDATE policy on
+    // agent_profiles, which is exactly the policy that must not exist.
+    expect(settings).toContain('fetch("/api/my/voice-phone"');
+    expect(settings).not.toContain('.from("agent_profiles")');
   });
 });

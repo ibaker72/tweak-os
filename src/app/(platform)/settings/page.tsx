@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatPhoneNumber } from "@/lib/phone";
 import {
   Settings,
   LogOut,
@@ -73,10 +75,18 @@ export default function SettingsPage() {
   // The caller's own Twilio callback number — the phone click-to-call rings
   // first. Self-service for this one column only; everything else on an
   // agent_profiles row is still admin-write.
-  const [voicePhone, setVoicePhone] = useState("");
+  //
+  // `savedVoicePhone` is what the database holds and `voicePhoneDraft` is what
+  // is in the box. Keeping them apart is the point: the previous version had
+  // only the box, so an empty box meant both "nothing is saved" and "erase what
+  // is saved", and pressing Save on it silently wiped the number.
+  const [savedVoicePhone, setSavedVoicePhone] = useState<string | null>(null);
+  const [voicePhoneDraft, setVoicePhoneDraft] = useState("");
   const [savingVoicePhone, setSavingVoicePhone] = useState(false);
+  const [clearingVoicePhone, setClearingVoicePhone] = useState(false);
+  const [confirmClearVoicePhone, setConfirmClearVoicePhone] = useState(false);
   const [voicePhoneMessage, setVoicePhoneMessage] = useState<
-    { tone: "ok" | "error"; text: string } | null
+    { tone: "ok" | "warn" | "error"; text: string } | null
   >(null);
 
   useEffect(() => {
@@ -89,7 +99,11 @@ export default function SettingsPage() {
       setAgents(agentData.agents ?? []);
       setTemplates(templateData.templates ?? []);
       setSmartLists(smartListData.smart_lists ?? []);
-      setVoicePhone(voiceData.voice_phone ?? "");
+      // The box starts empty even when a number is saved: the saved value is
+      // shown above it as text, so there is nothing for a placeholder to be
+      // mistaken for.
+      setSavedVoicePhone(voiceData.voice_phone ?? null);
+      setVoicePhoneDraft("");
       setLoading(false);
     });
   }, []);
@@ -101,25 +115,62 @@ export default function SettingsPage() {
     router.push("/login");
   }
 
-  async function handleSaveVoicePhone() {
-    setSavingVoicePhone(true);
+  /**
+   * Apply the callback number, or erase it.
+   *
+   * Erasing is its own call with `clear: true`. An empty box is never an
+   * instruction — the route refuses a blank body without that flag, and this
+   * does not send one.
+   */
+  async function submitVoicePhone(intent: "save" | "clear") {
+    const clearing = intent === "clear";
+    const trimmed = voicePhoneDraft.trim();
+
+    if (!clearing && !trimmed) {
+      setVoicePhoneMessage({
+        tone: "error",
+        text: "Type your callback number first — an empty box does not change anything.",
+      });
+      return;
+    }
+
+    if (clearing) setClearingVoicePhone(true);
+    else setSavingVoicePhone(true);
     setVoicePhoneMessage(null);
+
     try {
       const res = await fetch("/api/my/voice-phone", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice_phone: voicePhone.trim() || null }),
+        body: JSON.stringify({
+          voice_phone: clearing ? null : trimmed,
+          clear: clearing,
+        }),
       });
       const data = await res.json().catch(() => ({}));
+
       if (res.ok && data.ok) {
-        // The server normalises to E.164; show what it actually stored.
-        setVoicePhone(data.voice_phone ?? "");
-        setVoicePhoneMessage({
-          tone: "ok",
-          text: data.voice_phone
-            ? `Saved. Twilio will ring ${data.voice_phone}.`
-            : "Cleared. Twilio calling is off for your account until you set a number.",
-        });
+        // The server returns what it read back out of the column, so this
+        // shows the stored value rather than what was typed.
+        const stored: string | null = data.voice_phone ?? null;
+        setSavedVoicePhone(stored);
+        setVoicePhoneDraft("");
+        setVoicePhoneMessage(
+          stored
+            ? {
+                tone: "ok",
+                text: `Saved. Twilio will ring ${formatPhoneNumber(stored)} when you press Call via Twilio.`,
+              }
+            : {
+                tone: "warn",
+                text: "Callback number removed. Twilio calling is off for your account until you set one.",
+              }
+        );
+        // The lead page renders this value on the server, and Next keeps the
+        // last render of it in the client router cache. Without this, walking
+        // straight from here to a lead can show the number that was there a
+        // moment ago.
+        router.refresh();
       } else {
         setVoicePhoneMessage({
           tone: "error",
@@ -131,6 +182,8 @@ export default function SettingsPage() {
       setVoicePhoneMessage({ tone: "error", text: "Network error while saving." });
     } finally {
       setSavingVoicePhone(false);
+      setClearingVoicePhone(false);
+      setConfirmClearVoicePhone(false);
     }
   }
 
@@ -224,29 +277,98 @@ export default function SettingsPage() {
             connected to the prospect, who sees the Tweak &amp; Build number —
             never this one.
           </p>
+
+          {/* What is actually stored, stated separately from the input. The
+              two used to be the same box, which is how a placeholder could be
+              mistaken for a saved value. */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+            <span className="text-xs font-medium uppercase text-zinc-500">
+              Saved number
+            </span>
+            {savedVoicePhone ? (
+              <>
+                <span className="font-mono text-sm text-zinc-100">
+                  {formatPhoneNumber(savedVoicePhone)}
+                </span>
+                <Badge variant="secondary" className="gap-1 text-[10px]">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Twilio calling ready
+                </Badge>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-amber-300">None saved</span>
+                <Badge variant="outline" className="gap-1 text-[10px] text-zinc-500">
+                  <XCircle className="h-3 w-3" />
+                  Twilio calling off
+                </Badge>
+              </>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
-              value={voicePhone}
-              onChange={(e) => setVoicePhone(e.target.value)}
-              placeholder="+18622984988"
+              value={voicePhoneDraft}
+              onChange={(e) => setVoicePhoneDraft(e.target.value)}
+              // Deliberately not a complete, plausible number: a grey
+              // placeholder that reads as a real value is what got the
+              // original number erased.
+              placeholder={
+                savedVoicePhone
+                  ? "Type a new number to replace it"
+                  : "Type your callback number"
+              }
               className="flex-1"
               inputMode="tel"
+              aria-label="Callback phone number"
             />
-            <Button size="sm" onClick={handleSaveVoicePhone} disabled={savingVoicePhone}>
+            <Button
+              size="sm"
+              onClick={() => submitVoicePhone("save")}
+              disabled={
+                savingVoicePhone ||
+                clearingVoicePhone ||
+                voicePhoneDraft.trim().length === 0
+              }
+              title={
+                voicePhoneDraft.trim().length === 0
+                  ? "Type a number first"
+                  : undefined
+              }
+            >
               <Save className="h-4 w-4" />
               {savingVoicePhone ? "Saving..." : "Save"}
             </Button>
+            {savedVoicePhone && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmClearVoicePhone(true)}
+                disabled={savingVoicePhone || clearingVoicePhone}
+              >
+                <Trash2 className="h-4 w-4" />
+                {clearingVoicePhone ? "Removing..." : "Remove"}
+              </Button>
+            )}
           </div>
+
           <p className="text-xs text-zinc-500">
-            US numbers may be typed any way you like; anything else needs full
-            E.164 form. Leave it blank to turn Twilio calling off for your
-            account. This is the only field on your profile you can change
-            yourself — rates, role, and payout details are admin-only.
+            US numbers may be typed any way you like — (862) 298-4988 and
+            8622984988 both work; anything else needs full E.164 form. Use
+            Remove to turn Twilio calling off for your account: leaving the box
+            empty changes nothing. This is the only field on your profile you
+            can change yourself — rates, role, and payout details are
+            admin-only.
           </p>
+
           {voicePhoneMessage && (
             <p
               className={`text-sm ${
-                voicePhoneMessage.tone === "ok" ? "text-lime-400" : "text-red-400"
+                voicePhoneMessage.tone === "ok"
+                  ? "text-lime-400"
+                  : voicePhoneMessage.tone === "warn"
+                    ? "text-amber-300"
+                    : "text-red-400"
               }`}
             >
               {voicePhoneMessage.text}
@@ -254,6 +376,20 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmClearVoicePhone}
+        onOpenChange={(open) => !clearingVoicePhone && setConfirmClearVoicePhone(open)}
+        title="Remove your callback number?"
+        description={
+          savedVoicePhone
+            ? `Twilio will no longer ring ${formatPhoneNumber(savedVoicePhone)}, and Call via Twilio will be unavailable on every lead until you set a number again.`
+            : "Twilio calling will be unavailable until you set a number again."
+        }
+        confirmLabel="Remove number"
+        busy={clearingVoicePhone}
+        onConfirm={() => submitVoicePhone("clear")}
+      />
 
       {/* Team Management */}
       <Card>

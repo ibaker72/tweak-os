@@ -344,8 +344,65 @@ button is disabled and says so. Two ways to set it:
   `{ action: "update", agent_id, voice_phone: "+18622984988" }`.
 
 US numbers can be typed any way; anything else needs full E.164. A `CHECK`
-constraint and `private.normalize_phone()` (a SQL mirror of the TypeScript
-normaliser) keep the stored value dialable.
+constraint and `private.normalize_phone()` (a SQL mirror of `normalizePhoneNumber`
+in `src/lib/phone.ts`, which is the single TypeScript implementation the SMS
+module, the voice module and Settings all import) keep the stored value
+dialable.
+
+`public.agent_profiles.voice_phone` is the **only** place a callback number
+lives. Both TypeScript readers — the Settings field and the lead page's Calling
+panel — go through `getCallbackPhone()` in `src/lib/voice/callback-phone.ts`, so
+the two cannot end up looking at different columns. There is no `profiles`
+table in this schema, and `voice-calls.test.ts` fails if a second
+callback-number column ever appears.
+
+**Erasing the number is a separate action from saving one.** Settings has a
+`Remove` button behind a confirmation, and the API needs `clear: true` alongside
+a blank `voice_phone`; a Save pressed on an empty box changes nothing and says
+so. That distinction is the fix for the production failure of 2026-09-02, where
+an empty field was read as "erase it": the request answered 200, the column went
+`NULL`, and the lead page went back to prompting for a number. Migration `00022`
+also makes every success verified — `set_my_voice_phone()` re-reads the column
+after the write and reports `not_saved` rather than `ok` if the value is not
+there, and `PATCH /api/my/voice-phone` checks it again from outside the
+function.
+
+### The public origin Twilio calls back on
+
+`APP_BASE_URL` must be the public production origin, e.g.
+`https://app.tweakandbuild.com`. It is resolved in trust order —
+`APP_BASE_URL`, then `NEXT_PUBLIC_APP_URL`, then Vercel's
+`VERCEL_PROJECT_PRODUCTION_URL`, and only then the `x-forwarded-*` request
+headers. The order is deliberate: whatever this resolves to becomes the URL
+Twilio fetches TwiML from, and the TwiML is what decides which number gets
+dialed, so the one input a caller could influence is the last resort rather than
+the default. Setting `APP_BASE_URL` means the header path is never taken.
+
+The app refuses to place a call against an origin it can tell Twilio cannot
+reach — localhost, a private address, a `.local` host — and names the variable
+to set instead of ringing the agent's phone and going silent. A preview
+deployment behind Vercel Authentication is equally unreachable; use the
+production domain.
+
+### Environment variables for voice
+
+Nothing here is new to this feature except the two optional entries at the
+bottom; voice shares the Twilio account with SMS.
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `TWILIO_ACCOUNT_SID` | yes | Shared with SMS |
+| `TWILIO_AUTH_TOKEN` | yes | Also validates the inbound webhook signatures |
+| `TWILIO_FROM_NUMBER` | yes | Must be **voice-capable**. The prospect's caller ID |
+| `TWILIO_VOICE_ENABLED` | yes | `true` to place real calls. Anything else keeps voice off |
+| `TWILIO_WEBHOOK_VALIDATE_SIGNATURE` | no (default on) | Shared with the SMS webhook. Leave on |
+| `APP_BASE_URL` | **set it in production** | Public origin Twilio calls back on |
+| `NEXT_PUBLIC_APP_URL` | optional | Read server-side as a fallback for `APP_BASE_URL` |
+| `TWILIO_VOICE_FROM_NUMBER` | optional | Only when the voice number must differ from the SMS one. Falls back to `TWILIO_FROM_NUMBER` |
+
+`SUPABASE_SERVICE_ROLE_KEY` is used by the two voice webhooks and nowhere else
+user-facing — a webhook has no session to act as. `route-coverage.test.ts`
+fails if any other route imports the service client.
 
 ### The kill switch
 

@@ -14,6 +14,7 @@ import { getSmsMessagesForLead } from "@/lib/sms/queries";
 import { isSmsSendingEnabled } from "@/lib/sms/config";
 import { getVoiceCallsForLead } from "@/lib/voice/queries";
 import { isVoiceEnabled } from "@/lib/voice/config";
+import { getCallbackPhone } from "@/lib/voice/callback-phone";
 import type { SmsMessage, VoiceCall } from "@/lib/leads/types";
 
 export default async function LeadDetailPage({
@@ -88,20 +89,18 @@ export default async function LeadDetailPage({
     voiceCalls = [];
   }
 
-  // The agent's own callback number — the phone Twilio rings first. Agents can
-  // only read their own agent_profiles row, so this returns theirs or nothing.
+  // The agent's own callback number — the phone Twilio rings first. Read
+  // through the shared accessor so this page and the Settings field can never
+  // end up looking at different columns; agent_profiles RLS restricts a
+  // non-admin to their own row, and the user_id filter is what keeps an admin
+  // reading their own rather than a teammate's.
   let agentVoicePhone: string | null = null;
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const { data: profile } = await supabase
-        .from("agent_profiles")
-        .select("voice_phone")
-        .eq("user_id", user.id)
-        .maybeSingle<{ voice_phone: string | null }>();
-      agentVoicePhone = profile?.voice_phone ?? null;
+      agentVoicePhone = await getCallbackPhone(supabase, { userId: user.id });
     }
   } catch {
     agentVoicePhone = null;

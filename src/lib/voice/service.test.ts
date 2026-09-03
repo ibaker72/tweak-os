@@ -293,6 +293,43 @@ describe("Twilio errors", () => {
 });
 
 describe("enabled but not configured", () => {
+  it("refuses an origin Twilio cannot fetch TwiML from", async () => {
+    // A call placed from `npm run dev` would ring the agent's phone and then
+    // go silent, because Twilio cannot reach localhost. Saying so up front is
+    // cheaper than reading it out of a Twilio error log afterwards.
+    enableVoice();
+    const { client } = makeSupabase(OK_REQUEST);
+
+    const result = await initiateVoiceCall(client, {
+      leadId: "lead-1",
+      baseUrl: "http://localhost:3000",
+    });
+
+    expect(twilioCreateCall).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("not_configured");
+    expect(result.error_message).toMatch(/APP_BASE_URL/);
+  });
+
+  it("still records the attempt when the callback origin is unusable", async () => {
+    enableVoice();
+    const { client, calls } = makeSupabase(OK_REQUEST);
+    await initiateVoiceCall(client, { leadId: "lead-1", baseUrl: "http://127.0.0.1:3000" });
+
+    const recorded = calls.find((c) => c.fn === "record_voice_call_result");
+    expect(recorded?.args.p_status).toBe("failed");
+  });
+
+  it("places the call from a public origin", async () => {
+    enableVoice();
+    twilioCreateCall.mockResolvedValue({ sid: "CA1", status: "queued" });
+    const { client } = makeSupabase(OK_REQUEST);
+
+    const result = await initiateVoiceCall(client, INPUT);
+    expect(result.ok).toBe(true);
+    expect(twilioCreateCall).toHaveBeenCalledTimes(1);
+  });
+
   it("fails the call rather than calling Twilio with half a config", async () => {
     process.env.TWILIO_VOICE_ENABLED = "true";
     // No SID, token or from number.

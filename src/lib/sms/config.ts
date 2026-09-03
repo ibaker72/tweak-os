@@ -47,27 +47,8 @@ export function assertSendableConfig(config: SmsConfig): asserts config is SmsCo
   }
 }
 
-// Loose E.164 sanity check. Twilio is the source of truth for validation;
-// we only block obviously empty / malformed inputs here.
-export function normalizePhoneNumber(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-
-  // Strip everything except digits and a leading +.
-  const cleaned = trimmed.replace(/[^\d+]/g, "");
-  if (!cleaned) return null;
-
-  if (cleaned.startsWith("+")) {
-    return cleaned.length >= 8 ? cleaned : null;
-  }
-
-  // No country code — assume US/Canada if 10 digits.
-  if (cleaned.length === 10) return `+1${cleaned}`;
-  if (cleaned.length === 11 && cleaned.startsWith("1")) return `+${cleaned}`;
-  return null;
-}
-
-export function isValidPhoneNumber(raw: string | null | undefined): boolean {
-  return normalizePhoneNumber(raw) !== null;
-}
+// Phone normalisation lives in @/lib/phone, which is also what the voice
+// module and the Settings callback field use. Re-exported here so the existing
+// `@/lib/sms/config` import sites keep working against one implementation
+// rather than a second copy that can drift from it.
+export { normalizePhoneNumber, isValidPhoneNumber } from "@/lib/phone";
