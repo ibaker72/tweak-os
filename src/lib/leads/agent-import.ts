@@ -74,3 +74,70 @@ export function toAgentImportRow(row: ValidatedCsvRow): AgentImportRow {
 export function toAgentImportRows(rows: ValidatedCsvRow[]): AgentImportRow[] {
   return rows.map(toAgentImportRow);
 }
+
+/**
+ * The fields a bulk (admin) CSV row may contribute.
+ *
+ * Wider than AgentImportRow because the admin importer carries the NJ Business
+ * Records columns and honours the file's own `source` label. Still a
+ * whitelist, and still silent on ownership: public.import_bulk_leads() assigns
+ * nobody and writes no attribution, so a bulk upload cannot credit whoever ran
+ * it.
+ */
+export interface BulkImportRow extends AgentImportRow {
+  source?: string;
+  entity_type?: string;
+  entity_status?: string;
+  registered_agent?: string;
+  source_filing_date?: string;
+  import_notes?: string;
+}
+
+/**
+ * NJ exports use M/D/YYYY or YYYY-MM-DD; Postgres wants ISO.
+ *
+ * Coerced here rather than in SQL so an unparseable date becomes an absent
+ * field instead of a failed row — the rest of the record is still worth
+ * importing.
+ */
+export function parseFilingDate(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  const iso = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (iso) {
+    const [, y, m, d] = iso;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  const us = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (us) {
+    const [, m, d, y] = us;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(trimmed);
+  return isNaN(parsed.getTime()) ? undefined : parsed.toISOString().slice(0, 10);
+}
+
+export function toBulkImportRow(row: ValidatedCsvRow): BulkImportRow {
+  const out: BulkImportRow = toAgentImportRow(row);
+
+  const set = (key: keyof BulkImportRow, value: string | undefined) => {
+    if (value && value.trim()) out[key] = value.trim();
+  };
+
+  set("source", row.source);
+  set("entity_type", row.entity_type);
+  set("entity_status", row.entity_status);
+  set("registered_agent", row.registered_agent);
+  set("source_filing_date", parseFilingDate(row.source_filing_date));
+  set("import_notes", row.import_notes);
+
+  return out;
+}
+
+export function toBulkImportRows(rows: ValidatedCsvRow[]): BulkImportRow[] {
+  return rows.map(toBulkImportRow);
+}

@@ -5,6 +5,15 @@ export type CsvFormat = "standard" | "nj_business_records";
 
 export interface CsvParseResult {
   valid: ValidatedCsvRow[];
+  /**
+   * Spreadsheet line number for each entry of `valid`, header included in the
+   * count — the number the partner sees in Google Sheets.
+   *
+   * The importer only ever receives the rows that validated, so it numbers its
+   * results 1..valid.length. Without this the import summary would point at
+   * "row 5" when the partner's row 5 was one the parser had already dropped.
+   */
+  validRowNumbers: number[];
   errors: { row: number; message: string }[];
   totalRows: number;
   detectedFormat: CsvFormat;
@@ -138,6 +147,7 @@ export function parseCsvContent(csvText: string): CsvParseResult {
     dataRows.length > 0 && isNjFormat(dataRows[0]) ? "nj_business_records" : "standard";
 
   const valid: ValidatedCsvRow[] = [];
+  const validRowNumbers: number[] = [];
   const errors: { row: number; message: string }[] = [];
 
   for (let i = 0; i < dataRows.length; i++) {
@@ -150,6 +160,7 @@ export function parseCsvContent(csvText: string): CsvParseResult {
     const result = csvLeadRowSchema.safeParse(candidate);
     if (result.success) {
       valid.push(result.data);
+      validRowNumbers.push(i + 2);
     } else {
       const messages = result.error.issues.map((e) => e.message).join("; ");
       errors.push({ row: i + 2, message: messages });
@@ -158,6 +169,7 @@ export function parseCsvContent(csvText: string): CsvParseResult {
 
   return {
     valid,
+    validRowNumbers,
     errors,
     totalRows: dataRows.length,
     detectedFormat,

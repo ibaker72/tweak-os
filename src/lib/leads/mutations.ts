@@ -1,77 +1,11 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  Lead,
   EnrichmentResult,
   ScoreResult,
   OutreachData,
   DiscoveryInput,
 } from "./types";
 import type { DiscoveredBusiness } from "./discovery";
-import type { ValidatedCsvRow } from "@/lib/validators/import";
-
-export async function insertLead(
-  supabase: SupabaseClient,
-  row: ValidatedCsvRow
-): Promise<Lead> {
-  const { data, error } = await supabase
-    .from("leads")
-    .insert({
-      business_name: row.business_name,
-      city: row.city ?? null,
-      state: row.state ?? null,
-      address: row.address ?? null,
-      zip: row.zip ?? null,
-      website: row.website ?? null,
-      email: row.email ?? null,
-      phone: row.phone ?? null,
-      source: row.source ?? null,
-      niche: row.niche ?? row.industry ?? null,
-      contact_name: row.contact_name ?? null,
-      manual_notes: row.notes ?? null,
-      external_id: row.external_id ?? null,
-      entity_type: row.entity_type ?? null,
-      entity_status: row.entity_status ?? null,
-      registered_agent: row.registered_agent ?? null,
-      source_filing_date: parseFilingDate(row.source_filing_date),
-      import_notes: row.import_notes ?? null,
-      lifecycle_status: "new",
-      enrichment_status: "pending",
-      score: 0,
-      reasons: [],
-      score_breakdown: {},
-      tech_stack: [],
-      social_links: {},
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data as Lead;
-}
-
-// NJ exports use M/D/YYYY or YYYY-MM-DD. Postgres `date` accepts ISO; coerce
-// or fall back to null so the insert doesn't fail on the column.
-function parseFilingDate(raw: string | undefined): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  // ISO YYYY-MM-DD or YYYY/MM/DD
-  const iso = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  if (iso) {
-    const [, y, m, d] = iso;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  // US M/D/YYYY or MM-DD-YYYY
-  const us = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (us) {
-    const [, m, d, y] = us;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  const parsed = new Date(trimmed);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 10);
-  }
-  return null;
-}
 
 export async function updateLeadEnrichment(
   supabase: SupabaseClient,
@@ -487,41 +421,6 @@ export async function bulkMarkContacted(
 // ============================================
 // Import Job Mutations
 // ============================================
-
-export async function createImportJob(
-  supabase: SupabaseClient,
-  filename: string,
-  totalRows: number
-): Promise<string> {
-  const { data, error } = await supabase
-    .from("import_jobs")
-    .insert({
-      filename,
-      total_rows: totalRows,
-      status: "processing",
-    })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return data.id;
-}
-
-export async function updateImportJob(
-  supabase: SupabaseClient,
-  jobId: string,
-  updates: {
-    imported_rows?: number;
-    skipped_rows?: number;
-    failed_rows?: number;
-    status?: string;
-  }
-): Promise<void> {
-  const { error } = await supabase
-    .from("import_jobs")
-    .update(updates)
-    .eq("id", jobId);
-  if (error) throw error;
-}
 
 // ============================================
 // Enrichment Job Mutations

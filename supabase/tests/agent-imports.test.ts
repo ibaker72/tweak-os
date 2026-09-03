@@ -342,7 +342,7 @@ describeDb("agent self-sourced imports", () => {
   });
 
   describe("reporting", () => {
-    it("counts imported, skipped and failed rows separately", async () => {
+    it("counts imported, duplicate, invalid and failed rows separately", async () => {
       await importAs(ids.agentAUserId, [{ business_name: "Seen Co", state: "NJ" }]);
 
       const result = await importAs(ids.agentAUserId, [
@@ -354,7 +354,11 @@ describeDb("agent self-sourced imports", () => {
       expect(result.total_rows).toBe(3);
       expect(result.imported_rows).toBe(1);
       expect(result.skipped_duplicates).toBe(1);
-      expect(result.failed_rows).toBe(1);
+      // A row the sheet's author can fix is `invalid`; `failed` is reserved for
+      // a write that blew up on our side. Merging them into one counter is what
+      // made the old summary unactionable.
+      expect(result.invalid_rows).toBe(1);
+      expect(result.failed_rows).toBe(0);
       expect((result.failures as { message: string }[])[0].message).toMatch(
         /business name is required/i
       );
@@ -382,21 +386,23 @@ describeDb("agent self-sourced imports", () => {
         expect(result.total_rows).toBe(3);
         expect(result.imported_rows).toBe(1);
         expect(result.skipped_duplicates).toBe(0);
-        expect(result.failed_rows).toBe(2);
+        expect(result.invalid_rows).toBe(2);
+        expect(result.failed_rows).toBe(0);
       } catch (err) {
         await client.query("rollback");
         throw err;
       }
 
       const { rows: jobs } = await client.query(
-        `select total_rows, imported_rows, skipped_rows, failed_rows
+        `select total_rows, imported_rows, skipped_rows, invalid_rows, failed_rows
          from public.import_jobs where filename = 'partial.csv'`
       );
       expect(jobs[0]).toEqual({
         total_rows: 3,
         imported_rows: 1,
         skipped_rows: 0,
-        failed_rows: 2,
+        invalid_rows: 2,
+        failed_rows: 0,
       });
     });
 

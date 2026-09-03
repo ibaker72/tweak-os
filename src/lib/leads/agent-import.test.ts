@@ -129,9 +129,17 @@ describe("the admin import route is unchanged in shape", () => {
     expect(adminSrc).toContain("const guard = await requireAdmin()");
   });
 
-  it("still inserts through insertLead with the shared duplicate check", () => {
-    expect(adminSrc).toContain("insertLead");
-    expect(adminSrc).toContain("findDuplicateLeadForImport");
+  it("imports through the admin definer function, not row-by-row over HTTP", () => {
+    // The per-row "does this exist?" round trip is gone: it could not be made
+    // race-free from the application, and its ILIKE match treated a `%` in a
+    // company name as a wildcard.
+    expect(adminSrc).toContain('rpc("import_bulk_leads"');
+    expect(adminSrc).not.toContain("insertLead");
+    expect(adminSrc).not.toContain("findDuplicateLeadForImport");
+  });
+
+  it("passes no ownership identifier to the function", () => {
+    expect(adminSrc).not.toMatch(/p_agent|p_assigned_to|agent_id:/);
   });
 
   it("does not route admin imports through the agent-credited function", () => {

@@ -159,6 +159,18 @@ export interface Lead {
   registered_agent: string | null;
   source_filing_date: string | null;
   import_notes: string | null;
+
+  // Canonical identity, maintained by the database (migration 00023). These are
+  // GENERATED columns: they are read-only, always derived from the fields above,
+  // and are what the importers match on. Never write to them.
+  dedupe_external?: string | null;
+  dedupe_phone?: string | null;
+  dedupe_email?: string | null;
+  dedupe_domain?: string | null;
+  dedupe_name?: string | null;
+  dedupe_city?: string | null;
+  dedupe_state?: string | null;
+
   contacted_at: string | null;
   archived_at: string | null;
   deleted_at: string | null;

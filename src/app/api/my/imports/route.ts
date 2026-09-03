@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseCsvContent } from "@/lib/leads/csv";
 import { toAgentImportRows } from "@/lib/leads/agent-import";
+import { buildImportSummary } from "@/lib/leads/import-result";
 import { requireUser } from "@/lib/auth/guard";
 
 /**
@@ -17,7 +18,12 @@ import { requireUser } from "@/lib/auth/guard";
  * assigned_to, agent_id or attribution field in it, and the function would
  * ignore them anyway. Ownership is decided in one place, server-side.
  *
- * The admin importer at POST /api/imports is untouched and still admin-only.
+ * Duplicate detection lives entirely in the database, in
+ * private.find_duplicate_lead(): normalized phone, then email, then domain,
+ * then business name plus location, matched against every lead in the table
+ * rather than the ones this agent may read. A row that matches is skipped
+ * outright — no second lead, no second attribution, and no change to the
+ * existing lead's owner or pipeline state, whoever it belongs to.
  */
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -45,7 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     const csvText = await file.text();
-    const { valid, errors, totalRows, detectedFormat } = parseCsvContent(csvText);
+    const { valid, validRowNumbers, errors, totalRows, detectedFormat } =
+      parseCsvContent(csvText);
 
     if (totalRows === 0) {
       return NextResponse.json({ error: "CSV file is empty" }, { status: 400 });
@@ -79,30 +86,16 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    const result = (data ?? {}) as {
-      job_id?: string;
-      imported_rows?: number;
-      skipped_duplicates?: number;
-      failed_rows?: number;
-      failures?: { row: number; message: string }[];
-    };
-
-    // The function already counts the rejected rows into failed_rows; their
-    // messages live here, so the two lists are merged for the summary.
-    const parseFailures = errors.map((e) => ({ row: e.row, message: e.message }));
-    const failures = [...parseFailures, ...(result.failures ?? [])];
-
-    return NextResponse.json({
-      job_id: result.job_id,
-      detected_format: detectedFormat,
-      total_rows: totalRows,
-      imported_rows: result.imported_rows ?? 0,
-      skipped_duplicates: result.skipped_duplicates ?? 0,
-      failed_rows: result.failed_rows ?? 0,
-      attribution: "self_sourced",
-      errors: failures.slice(0, 10),
-      first_failure_reasons: failures.slice(0, 10).map((f) => f.message),
-    });
+    return NextResponse.json(
+      buildImportSummary({
+        rpcResult: (data ?? {}) as Record<string, unknown>,
+        parseErrors: errors,
+        validRowNumbers,
+        totalRows,
+        detectedFormat,
+        attribution: "self_sourced",
+      })
+    );
   } catch (err) {
     console.error("Agent import error:", err);
     return NextResponse.json({ error: "Import failed" }, { status: 500 });

@@ -3,23 +3,14 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileText, CheckCircle, XCircle } from "lucide-react";
-
-interface ImportResult {
-  job_id: string;
-  detected_format?: "standard" | "nj_business_records";
-  total_rows: number;
-  imported_rows: number;
-  skipped_duplicates?: number;
-  failed_rows: number;
-  errors: { row: number; message: string }[];
-  first_failure_reasons?: string[];
-}
+import type { ImportSummaryResult } from "@/lib/leads/import-result";
+import { ImportSummary } from "@/components/dashboard/import-summary";
+import { Upload, FileText, XCircle } from "lucide-react";
 
 export function ImportCsvForm() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<ImportSummaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -110,69 +101,12 @@ export function ImportCsvForm() {
       )}
 
       {result && (
-        <Card className="border-lime-900">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-lime-400" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-zinc-50">Import Complete</p>
-                {result.detected_format === "nj_business_records" && (
-                  <p className="text-xs text-zinc-500">
-                    Detected format: NJ Business Records
-                  </p>
-                )}
-                <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <ResultStat label="Total" value={result.total_rows} tone="muted" />
-                  <ResultStat label="Imported" value={result.imported_rows} tone="success" />
-                  <ResultStat label="Skipped" value={result.skipped_duplicates ?? 0} tone="warn" />
-                  <ResultStat label="Failed" value={result.failed_rows} tone="danger" />
-                </dl>
-              </div>
-            </div>
-            {result.first_failure_reasons && result.first_failure_reasons.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-zinc-300">
-                  First {result.first_failure_reasons.length} failure reasons:
-                </p>
-                <div className="mt-1 max-h-40 overflow-y-auto rounded-md bg-zinc-900 p-3">
-                  {result.first_failure_reasons.map((msg, i) => (
-                    <p key={i} className="text-xs text-zinc-500">
-                      {msg}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ImportSummary
+          result={result}
+          title="Import complete"
+          subtitle="Bulk imports stay unassigned; existing leads were skipped, not touched."
+        />
       )}
-    </div>
-  );
-}
-
-function ResultStat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "muted" | "success" | "warn" | "danger";
-}) {
-  const color =
-    tone === "success"
-      ? "text-lime-400"
-      : tone === "warn"
-        ? "text-amber-400"
-        : tone === "danger"
-          ? "text-red-400"
-          : "text-zinc-300";
-  return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-center">
-      <dt className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-        {label}
-      </dt>
-      <dd className={`mt-0.5 text-lg font-semibold ${color}`}>{value}</dd>
     </div>
   );
 }

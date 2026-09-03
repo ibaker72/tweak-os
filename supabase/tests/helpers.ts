@@ -46,8 +46,29 @@ export async function connect(suite?: string): Promise<Client> {
     await admin.end();
   }
 
-  url.pathname = `/${dbName}`;
-  const client = new Client({ connectionString: url.toString() });
+  const client = new Client({ connectionString: suiteDatabaseUrl(suite) });
+  await client.connect();
+  return client;
+}
+
+/** The connection string connect() would build for a suite, without rebuilding it. */
+export function suiteDatabaseUrl(suite: string): string {
+  const url = new URL(TEST_DATABASE_URL);
+  const baseName = decodeURIComponent(url.pathname.replace(/^\//, "")) || "postgres";
+  url.pathname = `/${`${baseName}_${suite}`.replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 63)}`;
+  return url.toString();
+}
+
+/**
+ * A SECOND connection to a suite's database, leaving its schema and data
+ * alone.
+ *
+ * Only one thing needs this: proving that two imports running at the same
+ * moment cannot both insert the same business. That takes two real sessions —
+ * one transaction cannot race itself.
+ */
+export async function connectAlso(suite: string): Promise<Client> {
+  const client = new Client({ connectionString: suiteDatabaseUrl(suite) });
   await client.connect();
   return client;
 }
