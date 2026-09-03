@@ -6,6 +6,7 @@ import { LeadDetailExtras } from "@/components/dashboard/lead-detail-extras";
 import { SmsPanel } from "@/components/dashboard/sms-panel";
 import { VoiceCallPanel } from "@/components/dashboard/voice-call-panel";
 import { ConvertToAccount } from "@/components/leads/convert-to-account";
+import { LeadProposals, type LeadProposalRow } from "@/components/leads/lead-proposals";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -73,6 +74,21 @@ export default async function LeadDetailPage({
     converted = null;
   }
 
+  // Proposals already written for this lead. RLS scopes these the same way it
+  // scopes the lead itself, so an agent only ever sees their own.
+  let proposals: LeadProposalRow[] = [];
+  try {
+    const { data } = await supabase
+      .from("proposals")
+      .select("id, status, total_one_time, total_monthly, created_at, sent_at")
+      .eq("lead_id", id)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    proposals = (data ?? []) as unknown as LeadProposalRow[];
+  } catch {
+    proposals = [];
+  }
+
   let smsMessages: SmsMessage[] = [];
   try {
     smsMessages = await getSmsMessagesForLead(supabase, id, 25);
@@ -121,6 +137,12 @@ export default async function LeadDetailPage({
       </DashboardHeader>
 
       <LeadDetailCard lead={lead} activityLog={activityLog} />
+
+      <LeadProposals
+        leadId={lead.id}
+        website={lead.website}
+        proposals={proposals}
+      />
 
       <ConvertToAccount
         leadId={lead.id}

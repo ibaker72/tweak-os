@@ -17,6 +17,7 @@ import {
   normalizeServices,
 } from "@/lib/proposals/services";
 import { requireUser } from "@/lib/auth/guard";
+import { canAttachLead } from "@/lib/proposals/lead-link";
 
 const PROPOSAL_MODEL = "claude-sonnet-4-20250514";
 const PROPOSAL_MAX_TOKENS = 2500;
@@ -72,6 +73,16 @@ export async function POST(request: NextRequest) {
   });
 
   const supabase = guard.supabase;
+
+  // Same rule as the save route: a proposal may only reference a lead this
+  // caller is allowed to see. Checked before the model is called so an
+  // unauthorized lead_id costs nothing.
+  if (input.lead_id && !(await canAttachLead(supabase, input.lead_id))) {
+    return Response.json(
+      { error: "Lead not found or not available to this account" },
+      { status: 403 }
+    );
+  }
 
   const userPrompt = buildProposalUserPrompt({
     client_name: input.client_name,

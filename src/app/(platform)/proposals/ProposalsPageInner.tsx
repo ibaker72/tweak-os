@@ -11,6 +11,8 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText,
+  Users,
+  Link2,
   Sparkles,
   Loader2,
   Copy,
@@ -57,6 +59,11 @@ import { formatDate } from "@/lib/utils";
 import { ProposalComposer } from "@/components/proposals/ProposalComposer";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
 import { EmailProposalModal, type EmailProposalPayload } from "@/components/proposals/EmailProposalModal";
+import { LeadPicker, existingProposalLabel } from "@/components/proposals/LeadPicker";
+import {
+  buildProposalPrefill,
+  type LeadCandidate,
+} from "@/lib/proposals/lead-candidates";
 import { Toast, type ToastTone } from "@/components/proposals/Toast";
 
 /**
@@ -156,6 +163,13 @@ export function ProposalsPageInner() {
     open: false,
   });
 
+  // The CRM link. `leadId` is what gets persisted on the proposal row;
+  // `linkedLead` is the display copy of that lead, used for the banner and the
+  // existing-proposal warning. A proposal can still be built with both unset.
+  const [leadId, setLeadId] = useState<string | null>(presetLeadId ?? null);
+  const [linkedLead, setLinkedLead] = useState<LeadCandidate | null>(null);
+  const [topTab, setTopTab] = useState<"lead" | "recent">("lead");
+
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(true);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
@@ -184,6 +198,14 @@ export function ProposalsPageInner() {
   useEffect(() => {
     loadProposals();
   }, []);
+
+  // Arriving from a lead ("Create Proposal" on the lead page) — fetch that one
+  // lead and pre-fill from it, the same way picking it here would.
+  useEffect(() => {
+    if (!presetLeadId) return;
+    loadLead(presetLeadId, { prefill: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetLeadId]);
 
   useEffect(() => {
     if (!proposalIdParam) {
@@ -228,6 +250,57 @@ export function ProposalsPageInner() {
     } finally {
       setSelectedProposalLoading(false);
     }
+  }
+
+  /**
+   * Load one lead through the picker endpoint (RLS-scoped, so an unauthorized
+   * id simply comes back empty) and optionally pre-fill the builder from it.
+   */
+  async function loadLead(id: string, opts: { prefill: boolean }) {
+    try {
+      const res = await fetch(`/api/proposals/leads?lead_id=${encodeURIComponent(id)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const lead: LeadCandidate | undefined = data.leads?.[0];
+      if (!lead) return;
+      setLinkedLead(lead);
+      if (opts.prefill) applyLeadPrefill(lead);
+    } catch {
+      // Non-fatal: the builder still works without the lead banner.
+    }
+  }
+
+  /**
+   * Copy the client's identity across from the CRM — and nothing else.
+   * Services, scope and pricing stay empty on purpose: what a client is sold
+   * is a decision the agent makes on every proposal.
+   */
+  function applyLeadPrefill(lead: LeadCandidate) {
+    const prefill = buildProposalPrefill(lead);
+    setLeadId(prefill.lead_id);
+    setClientName(prefill.client_name);
+    setBusinessType(prefill.business_type);
+    setWebsiteUrl(prefill.website_url);
+    if (prefill.recipient_name) setRecipientName(prefill.recipient_name);
+    if (prefill.recipient_email) setRecipientEmail(prefill.recipient_email);
+  }
+
+  function selectLead(lead: LeadCandidate) {
+    setLinkedLead(lead);
+    applyLeadPrefill(lead);
+    // A new proposal, not an edit of whatever was open before.
+    setSavedId(null);
+    showToast(`Started a proposal for ${lead.business_name ?? "this lead"}`, "success");
+    setTimeout(() => {
+      document
+        .getElementById("proposal-composer")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
+  function unlinkLead() {
+    setLeadId(null);
+    setLinkedLead(null);
   }
 
   function getProposalSections(proposal: Proposal): ProposalSections {
@@ -275,6 +348,11 @@ export function ProposalsPageInner() {
     // Load the stored lines as-is (legacy shapes included) so an old
     // proposal keeps its exact scope and pricing when reopened.
     setSelectedServices(normalizeServices(proposal.services_json));
+    // Keep the CRM link when reopening a proposal that has one, so saving it
+    // again cannot quietly orphan it.
+    setLeadId(proposal.lead_id ?? null);
+    setLinkedLead(null);
+    if (proposal.lead_id) loadLead(proposal.lead_id, { prefill: false });
     setTimeout(() => {
       document.getElementById("proposal-composer")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
@@ -339,7 +417,7 @@ export function ProposalsPageInner() {
           website_url: websiteUrl,
           selected_services: selectedServices,
           notes,
-          lead_id: presetLeadId,
+          lead_id: leadId ?? undefined,
         }),
       });
 
@@ -426,7 +504,7 @@ export function ProposalsPageInner() {
           selected_services: selectedServices,
           proposal_sections: sections,
           proposal_html: sectionsToMarkdown(sections),
-          lead_id: presetLeadId,
+          lead_id: leadId ?? undefined,
         }),
       });
       if (res.ok) {
@@ -668,16 +746,56 @@ export function ProposalsPageInner() {
         </Card>
       )}
 
-      {/* Recent proposals */}
+      {/* Start from a Lead / Recent Proposals.
+          The picker leads because starting from the CRM is the common case;
+          the proposal history is one click away rather than gone. */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-5 w-5 text-lime-400" />
-            Recent Proposals
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              {topTab === "lead" ? (
+                <Users className="h-5 w-5 text-lime-400" />
+              ) : (
+                <FileText className="h-5 w-5 text-lime-400" />
+              )}
+              {topTab === "lead" ? "Start from a Lead" : "Recent Proposals"}
+            </CardTitle>
+            <div
+              className="inline-flex overflow-hidden rounded-md border border-zinc-800"
+              role="tablist"
+              aria-label="Proposal starting point"
+            >
+              <button
+                role="tab"
+                onClick={() => setTopTab("lead")}
+                aria-selected={topTab === "lead"}
+                className={`px-3 py-1.5 text-xs transition-colors ${
+                  topTab === "lead"
+                    ? "bg-zinc-800 text-zinc-100"
+                    : "text-zinc-400 hover:bg-zinc-800/60"
+                }`}
+              >
+                Start from Lead
+              </button>
+              <button
+                role="tab"
+                onClick={() => setTopTab("recent")}
+                aria-selected={topTab === "recent"}
+                className={`px-3 py-1.5 text-xs transition-colors ${
+                  topTab === "recent"
+                    ? "bg-zinc-800 text-zinc-100"
+                    : "text-zinc-400 hover:bg-zinc-800/60"
+                }`}
+              >
+                Recent Proposals
+              </button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {proposalsLoading ? (
+          {topTab === "lead" ? (
+            <LeadPicker onSelect={selectLead} selectedLeadId={leadId} />
+          ) : proposalsLoading ? (
             <p className="text-sm text-zinc-500">Loading...</p>
           ) : proposals.length === 0 ? (
             <p className="text-sm text-zinc-500">No proposals yet.</p>
@@ -721,6 +839,13 @@ export function ProposalsPageInner() {
               <CardTitle className="text-base">Client & Services</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {leadId && (
+                <LinkedLeadBanner
+                  leadId={leadId}
+                  lead={linkedLead}
+                  onUnlink={unlinkLead}
+                />
+              )}
               <div>
                 <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   Client Name
@@ -1088,6 +1213,68 @@ export function ProposalsPageInner() {
         tone={toast.tone}
         onDismiss={() => setToast((t) => ({ ...t, open: false }))}
       />
+    </div>
+  );
+}
+
+/**
+ * The CRM link, shown on the builder while a lead is attached.
+ *
+ * Its second job is duplicate awareness: if the lead already has proposals,
+ * say so here. Nothing is blocked — a second proposal for the same lead is
+ * often the right answer — but it should be a decision, not an accident.
+ */
+function LinkedLeadBanner({
+  leadId,
+  lead,
+  onUnlink,
+}: {
+  leadId: string;
+  lead: LeadCandidate | null;
+  onUnlink: () => void;
+}) {
+  const location = [lead?.city, lead?.state].filter(Boolean).join(", ");
+  const contact = [lead?.phone, lead?.email].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-lg border border-lime-400/30 bg-lime-400/5 px-3 py-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-lime-300">
+            <Link2 className="h-3.5 w-3.5" />
+            Linked lead
+          </p>
+          <p className="mt-1 truncate text-sm font-medium text-zinc-100">
+            {lead?.business_name ?? "Lead"}
+            {location && <span className="text-zinc-500"> · {location}</span>}
+          </p>
+          {contact && <p className="truncate text-xs text-zinc-500">{contact}</p>}
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <a
+            href={`/leads/${leadId}`}
+            className="inline-flex items-center gap-1 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            View lead
+          </a>
+          <button
+            type="button"
+            onClick={onUnlink}
+            className="text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+          >
+            Unlink
+          </button>
+        </div>
+      </div>
+
+      {lead && lead.proposal_count > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 border-t border-lime-400/20 pt-2 text-xs text-amber-300">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          {existingProposalLabel(lead)} for this lead — you can still create
+          another.
+        </p>
+      )}
     </div>
   );
 }

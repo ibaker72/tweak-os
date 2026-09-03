@@ -5,6 +5,7 @@ import { proposalServiceSchema } from "@/lib/proposals/schema";
 import { calculateTotals, normalizeServices } from "@/lib/proposals/services";
 import type { ProposalSections } from "@/lib/proposals/types";
 import { requireUser } from "@/lib/auth/guard";
+import { canAttachLead } from "@/lib/proposals/lead-link";
 
 const proposalSelect =
   "id, lead_id, audit_id, client_name, business_type, website_url, recipient_name, recipient_email, services_json, proposal_html, proposal_sections, proposal_text, pdf_url, total_one_time, total_monthly, status, sent_at, last_edited_at, created_at";
@@ -101,8 +102,18 @@ export async function POST(request: NextRequest) {
       : input.proposal_html || "";
     const txt = sections ? sectionsToPlainText(sections) : "";
 
+    const supabase = guard.supabase;
+
+    // A proposal may reference a lead, but only one this caller is allowed to
+    // see. Checked here because the insert policy only constrains created_by.
+    if (input.lead_id && !(await canAttachLead(supabase, input.lead_id))) {
+      return NextResponse.json(
+        { error: "Lead not found or not available to this account" },
+        { status: 403 }
+      );
+    }
+
     const row = {
-      lead_id: input.lead_id ?? null,
       // Ownership anchor for RLS: a proposal with no lead still belongs to
       // whoever built it, and the insert policy requires this to be the caller.
       created_by: guard.agent.id,
@@ -121,11 +132,13 @@ export async function POST(request: NextRequest) {
       last_edited_at: new Date().toISOString(),
     };
 
-    const supabase = guard.supabase;
     if (input.id) {
+      // An edit that does not mention a lead must not silently unlink one:
+      // `lead_id` is only written when the caller actually sent it.
+      const updates = input.lead_id ? { ...row, lead_id: input.lead_id } : row;
       const { data, error } = await supabase
         .from("proposals")
-        .update(row)
+        .update(updates)
         .eq("id", input.id)
         .select("id, created_at")
         .single();
@@ -134,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
     const { data, error } = await supabase
       .from("proposals")
-      .insert(row)
+      .insert({ ...row, lead_id: input.lead_id ?? null })
       .select("id, created_at")
       .single();
     if (error) throw error;
