@@ -47,19 +47,31 @@ as $$
   )
 $$;
 
+-- Roles are CLUSTER-global, not per-database, so every suite's database shares
+-- them. `if not exists` then `create role` is a check-then-act race: two Vitest
+-- workers bootstrapping at the same moment both see the role missing and both
+-- create it, and one fails on pg_authid_rolname_index. That made `npm test`
+-- (which runs files in parallel) fail intermittently on exactly the suites that
+-- prove RLS. Catching duplicate_object is the atomic form — the role existing
+-- is the outcome we want however we got there.
 do $$
 begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then
+  begin
     create role anon nologin noinherit;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+  exception when duplicate_object then null;
+  end;
+
+  begin
     create role authenticated nologin noinherit;
-  end if;
+  exception when duplicate_object then null;
+  end;
+
   -- service_role carries BYPASSRLS in Supabase; that is what makes it usable
   -- for webhooks and cron and what makes it dangerous in user-facing routes.
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+  begin
     create role service_role nologin noinherit bypassrls;
-  end if;
+  exception when duplicate_object then null;
+  end;
 end
 $$;
 
@@ -71,3 +83,14 @@ alter default privileges in schema public
   grant all on tables to authenticated, service_role;
 alter default privileges in schema public
   grant all on sequences to authenticated, service_role;
+
+-- Supabase grants EXECUTE on every new function in `public` to anon and
+-- authenticated as NAMED roles, not through PUBLIC. That is what made
+-- `revoke all on function ... from public` look sufficient in 00019 while
+-- leaving clear_settled_payments() callable by anon in production.
+--
+-- Modelling it here is the point: without this line the suite runs against a
+-- permission model production does not have, and a test asserting "anon cannot
+-- call this" passes for the wrong reason. 00024 revokes it again.
+alter default privileges in schema public
+  grant all on functions to anon, authenticated, service_role;

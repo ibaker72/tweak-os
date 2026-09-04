@@ -321,6 +321,73 @@ describeDb("admin tools and Phase 5 decisions", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // Who can reach a SECURITY DEFINER function at all.
+  //
+  // Supabase grants EXECUTE on every new function in `public` to anon and
+  // authenticated as named roles, so `revoke ... from public` does not lock one
+  // down. 00019 relied on exactly that and left clear_settled_payments()
+  // callable by anon in production — the one definer function with no internal
+  // caller check, and the one that decides when money counts as settled.
+  //
+  // bootstrap.sql now reproduces those default privileges, so these assertions
+  // are about the grants production actually has rather than a cleaner local
+  // approximation. 00024 is what takes them away again.
+  // ---------------------------------------------------------------------------
+  describe("SECURITY DEFINER functions are not reachable by anon", () => {
+    it("no definer function in public is executable by anon", async () => {
+      const { rows } = await client.query(`
+        select p.oid::regprocedure::text as sig
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.prosecdef
+          and has_function_privilege('anon', p.oid, 'EXECUTE')
+        order by 1
+      `);
+      expect(rows.map((r) => r.sig)).toEqual([]);
+    });
+
+    it("the settlement sweep is service-role only, not agent-callable", async () => {
+      const { rows } = await client.query(`
+        select
+          has_function_privilege('anon', 'public.clear_settled_payments(integer)', 'EXECUTE') as anon,
+          has_function_privilege('authenticated', 'public.clear_settled_payments(integer)', 'EXECUTE') as auth,
+          has_function_privilege('service_role', 'public.clear_settled_payments(integer)', 'EXECUTE') as svc
+      `);
+      expect(rows[0]).toEqual({ anon: false, auth: false, svc: true });
+    });
+
+    it("clear_settled_payments refuses a non-admin caller on its own", async () => {
+      // Belt and braces: even with the grant restored, the function itself says no.
+      await client.query(
+        `grant execute on function public.clear_settled_payments(integer) to authenticated`
+      );
+      try {
+        const code = await asUser(client, ids.agentAUserId, (q) =>
+          q.errorCode(`select * from public.clear_settled_payments(0)`)
+        );
+        expect(code).toBe("42501");
+      } finally {
+        await client.query(
+          `revoke all on function public.clear_settled_payments(integer) from authenticated`
+        );
+      }
+    });
+
+    it("rejects a settlement window that would date a clearance before receipt", async () => {
+      const { rows } = await client.query(`
+        select code from (
+          select null::text as code
+        ) x
+      `);
+      void rows;
+      await expect(
+        client.query(`select * from public.clear_settled_payments(-1)`)
+      ).rejects.toThrow(/non-negative/);
+    });
+  });
+
   describe("5. Stripe payments arrive received, not cleared", () => {
     it("clear_settled_payments leaves a fresh payment alone", async () => {
       const { deal } = await seedDealAndPayment(client, ids, { skipPayment: true });
