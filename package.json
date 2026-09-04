@@ -51,7 +51,7 @@
   },
   "allowScripts": {
     "core-js@3.49.0": true,
-    "sharp@0.34.5": true,
-    "unrs-resolver@1.11.1": true
+    "unrs-resolver@1.11.1": true,
+    "sharp@0.35.4": true
   }
 }
