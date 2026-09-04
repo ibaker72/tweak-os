@@ -128,6 +128,135 @@ describeDb("commission engine (integration)", () => {
     rows.reduce((t, r) => t + Number(r.amount_cents), 0);
 
   // -------------------------------------------------------------------------
+  // Refunds against a deal with more than one payment.
+  //
+  // The planner walks payments in cleared_at order and converges the ledger on
+  // one target. The bug this guards against seeded the running total with the
+  // WHOLE ledger instead of the prefix walked so far, so the first payment's
+  // delta was measured against every payment's commission. A refund on
+  // anything but the last payment then produced an oversized clawback plus a
+  // compensating `earned` row for a payment that already had one — which the
+  // per-(payment, agent) unique index refuses and insertEntries counts as a
+  // benign duplicate. The money vanished with no error anywhere: a full refund
+  // of the first of two payments zeroed the agent's entire commission.
+  //
+  // These run through recordRefund, which is what the Stripe webhook calls on
+  // charge.refunded and on a dispute, so this path has no human in the loop.
+  // -------------------------------------------------------------------------
+
+  describe("a refund on a payment that is not the last one", () => {
+    it("claws back only the refunded share, not everything after it", async () => {
+      const dealId = await makeDeal();
+      const first = await addPayment(dealId, {
+        amount: 500_000,
+        cleared: "2026-01-01T00:00:00.000Z",
+      });
+      await addPayment(dealId, { amount: 300_000, cleared: "2026-02-01T00:00:00.000Z" });
+
+      await accrueDeal(db as never, dealId);
+      expect(total(await ledger(dealId))).toBe(240_000);
+
+      // $2,000 back on the first payment: the basis is now $6,000, so 30% of
+      // it is $1,800.
+      await recordRefund(db as never, {
+        paymentId: first,
+        refundedAmountCents: 200_000,
+      });
+
+      expect(total(await ledger(dealId))).toBe(180_000);
+    });
+
+    it("attributes the clawback to the payment that was actually refunded", async () => {
+      const dealId = await makeDeal();
+      const first = await addPayment(dealId, {
+        amount: 500_000,
+        cleared: "2026-01-01T00:00:00.000Z",
+      });
+      await addPayment(dealId, { amount: 300_000, cleared: "2026-02-01T00:00:00.000Z" });
+
+      await accrueDeal(db as never, dealId);
+      await recordRefund(db as never, {
+        paymentId: first,
+        refundedAmountCents: 200_000,
+      });
+
+      const { rows } = await client.query(
+        `select payment_id, amount_cents from commission_entries
+         where deal_id = $1 and entry_type = 'clawback'`,
+        [dealId]
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].payment_id).toBe(first);
+      expect(Number(rows[0].amount_cents)).toBe(-60_000);
+    });
+
+    it("a full refund of the first payment leaves the second one earned", async () => {
+      const dealId = await makeDeal();
+      const first = await addPayment(dealId, {
+        amount: 500_000,
+        cleared: "2026-01-01T00:00:00.000Z",
+      });
+      await addPayment(dealId, { amount: 300_000, cleared: "2026-02-01T00:00:00.000Z" });
+
+      await accrueDeal(db as never, dealId);
+      await recordRefund(db as never, {
+        paymentId: first,
+        refundedAmountCents: 500_000,
+      });
+
+      // 30% of the $3,000 that was never refunded. Not zero.
+      expect(total(await ledger(dealId))).toBe(90_000);
+    });
+
+    it("handles a refund in the middle of three payments", async () => {
+      const dealId = await makeDeal();
+      await addPayment(dealId, { amount: 400_000, cleared: "2026-01-01T00:00:00.000Z" });
+      const middle = await addPayment(dealId, {
+        amount: 300_000,
+        cleared: "2026-02-01T00:00:00.000Z",
+      });
+      await addPayment(dealId, { amount: 100_000, cleared: "2026-03-01T00:00:00.000Z" });
+
+      await accrueDeal(db as never, dealId);
+      expect(total(await ledger(dealId))).toBe(240_000);
+
+      await recordRefund(db as never, {
+        paymentId: middle,
+        refundedAmountCents: 300_000,
+      });
+
+      expect(total(await ledger(dealId))).toBe(150_000);
+    });
+
+    it("stays put when the refund is re-applied and the deal re-swept", async () => {
+      const dealId = await makeDeal();
+      const first = await addPayment(dealId, {
+        amount: 500_000,
+        cleared: "2026-01-01T00:00:00.000Z",
+      });
+      await addPayment(dealId, { amount: 300_000, cleared: "2026-02-01T00:00:00.000Z" });
+
+      await accrueDeal(db as never, dealId);
+      await recordRefund(db as never, {
+        paymentId: first,
+        refundedAmountCents: 200_000,
+      });
+      const settled = await ledger(dealId);
+
+      // Same cumulative figure again, then a full re-sweep. Neither may move it.
+      await recordRefund(db as never, {
+        paymentId: first,
+        refundedAmountCents: 200_000,
+      });
+      await accrueDeal(db as never, dealId);
+      await sweepClearedPayments(db as never);
+
+      expect(total(await ledger(dealId))).toBe(180_000);
+      expect((await ledger(dealId)).length).toBe(settled.length);
+    });
+  });
+
+  // -------------------------------------------------------------------------
 
   describe("accrual writes what the planner plans", () => {
     it("an $8,000 build at 3000 bps writes one 240,000-cent entry", async () => {

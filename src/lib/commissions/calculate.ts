@@ -268,15 +268,27 @@ function planOneTime(args: {
   const { deal, agentId, rate, cleared, existingEntries, skipped } = args;
   const entries: PlannedEntry[] = [];
 
-  // Running totals. `accrued` tracks what the ledger already says, including
-  // anything this plan has added, so the deltas stay consistent within a
-  // single planning pass.
+  // Running totals, both scoped to the payments walked so far.
+  //
+  // `accrued` must track the ledger for that same prefix — not the whole
+  // ledger. Seeding it with the full total only happens to work while entries
+  // are appended in cleared_at order: the first iteration would then compare
+  // the commission on payment 1 against the commission on *every* payment.
+  // Once an earlier payment is refunded that comparison is wildly negative,
+  // which produced an oversized clawback on the first payment and a
+  // compensating `earned` row for a payment that already had one — and that
+  // second row is refused by uq_commission_entries_earned_per_payment_agent
+  // and silently dropped, leaving the agent underpaid. So each payment's
+  // existing entries are folded in as it is reached.
   let basisSoFar = 0;
-  let accrued = sumAmounts(ledgerEntries(existingEntries));
+  let accrued = 0;
 
   for (const payment of cleared) {
     const net = netClearedCents(payment);
     basisSoFar += net;
+    accrued += sumAmounts(
+      ledgerEntries(existingEntries.filter((e) => e.payment_id === payment.id))
+    );
 
     // Round once, on the cumulative basis. The entry is the difference between
     // where the ledger should be and where it is.

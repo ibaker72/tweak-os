@@ -11,6 +11,17 @@ import type {
 } from "./types";
 import type { LeadFilter } from "@/lib/validators/lead";
 import { getApiUsageStats } from "./api-usage";
+import { sanitizeLeadSearchTerm } from "@/lib/proposals/lead-candidates";
+
+/** Columns the lead list search scans. Kept explicit so the `.or()` expression
+ *  is built from a fixed list rather than assembled inline. */
+const LEAD_SEARCH_FILTER_COLUMNS = [
+  "business_name",
+  "city",
+  "niche",
+  "website",
+  "email",
+] as const;
 
 export async function getLeads(
   supabase: SupabaseClient,
@@ -37,9 +48,19 @@ export async function getLeads(
   }
 
   if (filters.search) {
-    query = query.or(
-      `business_name.ilike.%${filters.search}%,city.ilike.%${filters.search}%,niche.ilike.%${filters.search}%,website.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
-    );
+    // Sanitised before interpolation. `.or()` takes a PostgREST filter
+    // expression, so a raw term containing a comma, a parenthesis or a quote
+    // does not search for those characters — it restructures the filter tree.
+    // RLS still scopes the rows either way, but the query stops meaning what
+    // the caller asked for. sanitizeLeadSearchTerm is the same helper the
+    // proposal lead picker already routes its search through; this path was
+    // simply never updated to use it.
+    const term = sanitizeLeadSearchTerm(filters.search);
+    if (term) {
+      query = query.or(
+        LEAD_SEARCH_FILTER_COLUMNS.map((col) => `${col}.ilike.%${term}%`).join(",")
+      );
+    }
   }
   if (filters.lifecycle_status) {
     query = query.eq("lifecycle_status", filters.lifecycle_status);

@@ -192,6 +192,81 @@ describeDb("proposals.lead_id", () => {
     });
   });
 
+  describe("authorship survives a lead reassignment", () => {
+    // POST /api/proposals used to include created_by in the update payload as
+    // well as the insert. proposals_agent_update also admits whoever owns the
+    // linked lead, so once a lead moved to another agent, that agent's first
+    // Save rewrote created_by to themselves — and the original author, who was
+    // by then neither the creator nor the lead owner, fell out of the select
+    // policy and could never open their own proposal again. Silently, on a
+    // button that says "Save".
+    //
+    // The route now drops created_by from the update, so this asserts the
+    // column the route no longer touches stays put.
+    it("an edit by the new lead owner does not reassign created_by", async () => {
+      const { rows } = await client.query(
+        `insert into proposals (client_name, created_by, lead_id)
+         values ('Authored by A', $1, $2) returning id`,
+        [ids.agentAAgentId, ids.leadOfA]
+      );
+      const proposalId = rows[0].id as string;
+
+      await client.query(`update leads set assigned_to = $1 where id = $2`, [
+        ids.agentBAgentId,
+        ids.leadOfA,
+      ]);
+
+      try {
+        // Exactly the columns the route's update branch writes now.
+        await asUser(client, ids.agentBUserId, (q) =>
+          q.rows(
+            `update proposals
+               set client_name = 'Edited by B', last_edited_at = now()
+             where id = $1`,
+            [proposalId]
+          )
+        );
+
+        const after = await client.query(
+          `select created_by from proposals where id = $1`,
+          [proposalId]
+        );
+        expect(after.rows[0].created_by).toBe(ids.agentAAgentId);
+      } finally {
+        await client.query(`update leads set assigned_to = $1 where id = $2`, [
+          ids.agentAAgentId,
+          ids.leadOfA,
+        ]);
+      }
+    });
+
+    it("the author can still read their proposal after the lead moves", async () => {
+      const { rows } = await client.query(
+        `insert into proposals (client_name, created_by, lead_id)
+         values ('Still A''s', $1, $2) returning id`,
+        [ids.agentAAgentId, ids.leadOfA]
+      );
+      const proposalId = rows[0].id as string;
+
+      await client.query(`update leads set assigned_to = $1 where id = $2`, [
+        ids.agentBAgentId,
+        ids.leadOfA,
+      ]);
+
+      try {
+        const visible = await asUser(client, ids.agentAUserId, (q) =>
+          q.rows(`select id from proposals where id = $1`, [proposalId])
+        );
+        expect(visible).toHaveLength(1);
+      } finally {
+        await client.query(`update leads set assigned_to = $1 where id = $2`, [
+          ids.agentAAgentId,
+          ids.leadOfA,
+        ]);
+      }
+    });
+  });
+
   describe("RLS still decides who can pick which lead", () => {
     it("an agent cannot see a teammate's lead, so cannot attach one", async () => {
       // This is what the API's visibility check reads: no row, no attach.

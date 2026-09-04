@@ -135,7 +135,19 @@ export async function POST(request: NextRequest) {
     if (input.id) {
       // An edit that does not mention a lead must not silently unlink one:
       // `lead_id` is only written when the caller actually sent it.
-      const updates = input.lead_id ? { ...row, lead_id: input.lead_id } : row;
+      //
+      // `created_by` is deliberately dropped here. It records who authored the
+      // proposal, and editing one does not change that. Writing it on update
+      // silently transferred ownership: proposals_agent_update also admits
+      // whoever owns the linked lead, so after a lead reassignment the new
+      // owner's first Save reassigned created_by to themselves — and the
+      // original author, no longer creator and no longer lead owner, then
+      // failed the select policy and lost the proposal entirely.
+      const { created_by: _authoredBy, ...editable } = row;
+      void _authoredBy;
+      const updates = input.lead_id
+        ? { ...editable, lead_id: input.lead_id }
+        : editable;
       const { data, error } = await supabase
         .from("proposals")
         .update(updates)

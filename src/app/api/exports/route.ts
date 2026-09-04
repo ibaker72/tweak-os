@@ -3,6 +3,9 @@ import { leadFilterSchema } from "@/lib/validators/lead";
 import { leadsToCSV } from "@/lib/leads/csv";
 import { requireUser } from "@/lib/auth/guard";
 
+/** Ceiling on a single CSV export. Above this, narrow the filters. */
+const EXPORT_ROW_LIMIT = 10_000;
+
 export async function GET(request: NextRequest) {
   const guard = await requireUser();
   if (!guard.ok) return guard.response;
@@ -40,6 +43,12 @@ export async function GET(request: NextRequest) {
     query = query.order(filters.sort_by, {
       ascending: filters.sort_order === "asc",
     });
+
+    // Bounded. `select("*")` with no ceiling means one request serialises every
+    // column of every visible lead — fine at a few hundred rows, a timeout at
+    // fifty thousand. The cap is well above any realistic single export and
+    // still keeps the response a fixed size.
+    query = query.limit(EXPORT_ROW_LIMIT);
 
     const { data, error } = await query;
     if (error) throw error;
