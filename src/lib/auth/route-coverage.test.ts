@@ -130,14 +130,41 @@ describe("API route guard coverage", () => {
 
     // The definition site plus the machine-authenticated routes, and nothing
     // else. Each of these authenticates a caller that has no session.
+    //
+    // lib/supabase/admin-auth.ts is the one addition that is not a route. It
+    // exists because creating a login for a new teammate has to go through the
+    // Supabase Auth Admin API — auth.users is not reachable through PostgREST
+    // — and it exports only the `auth.admin` namespace off the service-role
+    // client, never the client itself. The test below pins that: no table
+    // access leaks out of it, so /api/agents can invite a user while its
+    // agent_profiles write still runs under the caller's session and RLS.
     expect(users.sort()).toEqual([
       "app/api/cron/commissions/accrue/route.ts",
       "app/api/webhooks/stripe/route.ts",
       "app/api/webhooks/twilio/sms/route.ts",
       "app/api/webhooks/twilio/voice/bridge/route.ts",
       "app/api/webhooks/twilio/voice/status/route.ts",
+      "lib/supabase/admin-auth.ts",
       "lib/supabase/service.ts",
     ]);
+  });
+
+  it("the admin-auth wrapper hands out the Auth Admin API and no table access", () => {
+    const src = readFileSync(
+      path.resolve(__dirname, "../supabase/admin-auth.ts"),
+      "utf8"
+    )
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    // The only thing that escapes the module.
+    expect(src).toContain("createServiceClient().auth.admin");
+    // Nothing that could read or write a table with policies switched off,
+    // and no path that returns the bare client.
+    for (const escape of [".from(", ".rpc(", ".storage", ".channel("]) {
+      expect(src, `admin-auth.ts must not expose ${escape}`).not.toContain(escape);
+    }
+    expect(src).not.toMatch(/createServiceClient\(\)(?!\.auth\.admin)/);
   });
 
   it("no route still references a table removed in Phase 0", () => {

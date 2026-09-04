@@ -17,6 +17,14 @@ Deployed at **app.tweakandbuild.com**.
 Roles live in `agent_profiles.role` (`admin` | `agent`), keyed to
 `auth.users` via `user_id`.
 
+Both halves are needed to get in: a login with no profile is refused by
+`requireUser()`, and a profile with no login has nothing to sign in with.
+Settings -> Team Management -> **Invite Agent** creates both from a name and an
+email — `POST /api/agents` invites the person through the Supabase Auth Admin
+API (or links the login they already have) and writes the profile as an active
+agent. Nobody has to touch the Supabase dashboard, and profiles created there
+by hand before this existed still work unchanged.
+
 ## Stack
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**

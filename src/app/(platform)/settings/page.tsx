@@ -29,6 +29,13 @@ import {
   PhoneCall,
 } from "lucide-react";
 
+/**
+ * Enough of an email check to catch a typo before spending a round trip. The
+ * route validates properly with zod and normalises the address; this only
+ * exists so "mary@" does not have to travel to the server to be refused.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 interface Agent {
   id: string;
   display_name: string;
@@ -68,6 +75,11 @@ export default function SettingsPage() {
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentEmail, setNewAgentEmail] = useState("");
   const [creatingAgent, setCreatingAgent] = useState(false);
+  // Whatever the server last said about this card, shown in the card. Every
+  // path below sets it — including the failures, which is the whole point.
+  const [agentMessage, setAgentMessage] = useState<
+    { tone: "ok" | "warn" | "error"; text: string } | null
+  >(null);
 
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [editTemplateData, setEditTemplateData] = useState<Partial<Template>>({});
@@ -187,35 +199,119 @@ export default function SettingsPage() {
     }
   }
 
+  /**
+   * Invite a teammate, or link the login they already have.
+   *
+   * The server does the real work — resolve or create the auth user, then
+   * write the agent_profiles row. All this has to get right is refusing
+   * obviously bad input before spending a round trip, and never throwing the
+   * response away.
+   *
+   * The previous version read `data.agent` and ignored everything else, so a
+   * 400 looked exactly like nothing happening — and every submission got a
+   * 400, because the route wanted an auth.users id the browser has no way to
+   * know. A silent button is the worst of both: the admin cannot tell whether
+   * the agent was added, so they press it again.
+   */
   async function handleCreateAgent() {
-    if (!newAgentName || !newAgentEmail) return;
+    const name = newAgentName.trim();
+    const email = newAgentEmail.trim().toLowerCase();
+
+    if (!name) {
+      setAgentMessage({ tone: "error", text: "Enter the agent's name." });
+      return;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      setAgentMessage({ tone: "error", text: "Enter a valid email address." });
+      return;
+    }
+
     setCreatingAgent(true);
+    setAgentMessage(null);
+
     try {
       const res = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ display_name: newAgentName, email: newAgentEmail, role: "agent" }),
+        // Name and email only. The role is the server's to decide, and there
+        // is no user_id to send.
+        body: JSON.stringify({ display_name: name, email }),
       });
-      const data = await res.json();
-      if (data.agent) {
-        setAgents([...agents, data.agent]);
-        setNewAgentName("");
-        setNewAgentEmail("");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.agent) {
+        // data.error is the route's own sentence — "That user already has an
+        // agent profile", and so on. Shown as written; the raw Supabase error
+        // never reaches here.
+        setAgentMessage({
+          tone: "error",
+          text: data.error ?? "Could not send the invitation. Try again.",
+        });
+        return;
       }
+
+      const created = data.agent as Agent;
+      // Kept in the order GET /api/agents returns, so a refresh does not
+      // reshuffle the list.
+      setAgents(
+        [...agents, created].sort((a, b) => a.display_name.localeCompare(b.display_name))
+      );
+      setNewAgentName("");
+      setNewAgentEmail("");
+      setAgentMessage({
+        tone: "ok",
+        text:
+          data.outcome === "linked"
+            ? `${created.email} already had a login — it is now linked as an agent.`
+            : `Invitation sent to ${created.email}.`,
+      });
     } catch (err) {
       console.error("Create agent error:", err);
+      setAgentMessage({
+        tone: "error",
+        text: "Network error while sending the invitation. Try again.",
+      });
     } finally {
       setCreatingAgent(false);
     }
   }
 
+  /**
+   * Activate or deactivate a teammate.
+   *
+   * Reads the response instead of assuming it worked. The route refuses an
+   * admin deactivating their own account — the optimistic version flipped the
+   * badge anyway, so the one control that stops an admin locking themselves
+   * out looked like it had failed to stop them.
+   */
   async function handleToggleAgent(id: string, isActive: boolean) {
-    await fetch("/api/agents", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, is_active: !isActive }),
-    });
-    setAgents(agents.map((a) => (a.id === id ? { ...a, is_active: !isActive } : a)));
+    setAgentMessage(null);
+    try {
+      const res = await fetch("/api/agents", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, is_active: !isActive }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.agent) {
+        setAgentMessage({
+          tone: "error",
+          text: data.error ?? "Could not update that agent.",
+        });
+        return;
+      }
+
+      // Reflect what was stored, not what was asked for.
+      const updated = data.agent as Agent;
+      setAgents(agents.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+    } catch (err) {
+      console.error("Toggle agent error:", err);
+      setAgentMessage({
+        tone: "error",
+        text: "Network error while updating that agent.",
+      });
+    }
   }
 
   async function handleSaveTemplate(id: string) {
@@ -427,15 +523,58 @@ export default function SettingsPage() {
             <p className="text-sm text-zinc-500">No agents yet.</p>
           )}
           <div className="border-t border-zinc-800 pt-4">
-            <p className="mb-2 text-xs font-medium text-zinc-500">Add Agent</p>
-            <div className="flex gap-2">
-              <Input placeholder="Name" value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} className="flex-1" />
-              <Input placeholder="Email" value={newAgentEmail} onChange={(e) => setNewAgentEmail(e.target.value)} className="flex-1" />
-              <Button size="sm" onClick={handleCreateAgent} disabled={creatingAgent || !newAgentName || !newAgentEmail}>
-                <Plus className="h-4 w-4" />
-                Add
+            <p className="mb-1 text-xs font-medium text-zinc-500">Invite Agent</p>
+            <p className="mb-2 text-xs text-zinc-500">
+              Emails an invitation to that address and creates their agent
+              profile. Someone who already has a login is linked to a profile
+              instead — no second account and no second email.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                placeholder="Full name"
+                value={newAgentName}
+                onChange={(e) => setNewAgentName(e.target.value)}
+                className="flex-1"
+                aria-label="New agent name"
+                disabled={creatingAgent}
+              />
+              <Input
+                type="email"
+                inputMode="email"
+                placeholder="name@company.com"
+                value={newAgentEmail}
+                onChange={(e) => setNewAgentEmail(e.target.value)}
+                className="flex-1"
+                aria-label="New agent email"
+                disabled={creatingAgent}
+              />
+              <Button
+                size="sm"
+                onClick={handleCreateAgent}
+                disabled={creatingAgent || !newAgentName.trim() || !newAgentEmail.trim()}
+              >
+                {creatingAgent ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {creatingAgent ? "Inviting..." : "Invite Agent"}
               </Button>
             </div>
+            {agentMessage && (
+              <p
+                className={`mt-2 text-sm ${
+                  agentMessage.tone === "ok"
+                    ? "text-lime-400"
+                    : agentMessage.tone === "warn"
+                      ? "text-amber-300"
+                      : "text-red-400"
+                }`}
+                role="status"
+              >
+                {agentMessage.text}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
