@@ -42,6 +42,7 @@ export function ConvertToAccount({ leadId, businessName, alreadyConverted }: Pro
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [companyName, setCompanyName] = useState(businessName);
   const [dealName, setDealName] = useState("");
@@ -78,7 +79,14 @@ export function ConvertToAccount({ leadId, businessName, alreadyConverted }: Pro
   }
 
   async function submit() {
+    // `disabled={saving}` is the visible guard, but React state lands on the
+    // next render and a fast double-click can beat it. This is the cheap
+    // belt-and-braces; the real guarantee is the unique index on
+    // accounts.lead_id, which holds even when the browser does something odd.
+    if (saving) return;
+
     setError(null);
+    setNotice(null);
 
     const contractCents = dollarsToCents(contractValue);
     const mrrCents = dollarsToCents(mrr);
@@ -120,6 +128,13 @@ export function ConvertToAccount({ leadId, businessName, alreadyConverted }: Pro
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
 
+      // A duplicate attempt is a success, not a failure. The server returns the
+      // account that already exists, so say so rather than letting the panel
+      // close as though this click did the work.
+      if (data.status === "already_converted") {
+        setNotice("Already converted — opening the account.");
+      }
+
       router.refresh();
       setOpen(false);
     } catch (err) {
@@ -140,6 +155,11 @@ export function ConvertToAccount({ leadId, businessName, alreadyConverted }: Pro
       <CardContent className="space-y-3 p-4 sm:p-6">
         {!open ? (
           <>
+            {notice && (
+              <p className="rounded bg-lime-500/10 px-2 py-1.5 text-xs text-lime-300">
+                {notice}
+              </p>
+            )}
             <p className="text-sm text-zinc-400">
               Turn this lead into a customer account with a draft deal.
             </p>

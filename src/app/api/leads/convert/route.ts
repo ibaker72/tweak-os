@@ -89,9 +89,19 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ ok: true, ...(data as Record<string, unknown>) }, {
-      status: 201,
-    });
+    // convert_lead_to_account() is idempotent: converting an already-converted
+    // lead returns the canonical account and deal with status
+    // 'already_converted' rather than raising. That is a success — a double
+    // click and a retry after a timeout both land here — so it gets a 2xx and
+    // the client treats both states as "converted". 201 only when this call is
+    // the one that created the rows.
+    const result = (data ?? {}) as Record<string, unknown>;
+    const created = result.status === "converted";
+
+    return NextResponse.json(
+      { ok: true, ...result },
+      { status: created ? 201 : 200 }
+    );
   } catch (err) {
     console.error("Lead convert error:", err);
     return NextResponse.json({ error: "Conversion failed" }, { status: 500 });
