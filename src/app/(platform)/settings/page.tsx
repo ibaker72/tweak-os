@@ -526,8 +526,10 @@ export default function SettingsPage() {
             <p className="mb-1 text-xs font-medium text-zinc-500">Invite Agent</p>
             <p className="mb-2 text-xs text-zinc-500">
               Emails an invitation to that address and creates their agent
-              profile. Someone who already has a login is linked to a profile
-              instead — no second account and no second email.
+              profile. The link asks them to choose a password and then drops
+              them on their dashboard. Someone who already has a login is
+              linked to a profile instead — no second account, no second email,
+              and their existing password still works.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input

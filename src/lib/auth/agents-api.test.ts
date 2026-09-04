@@ -283,7 +283,7 @@ describe("a brand-new email", () => {
 
     expect(auth.inviteUserByEmail).toHaveBeenCalledWith("mary@example.com", {
       data: { display_name: "Mary Chen" },
-      redirectTo: "https://app.tweakandbuild.com/login",
+      redirectTo: "https://app.tweakandbuild.com/setup-password",
     });
 
     const insert = db.ops.find((o) => o.kind === "insert")!;

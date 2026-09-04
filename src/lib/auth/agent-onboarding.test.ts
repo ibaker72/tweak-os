@@ -206,13 +206,13 @@ describe("resolveOrInviteAuthUser", () => {
     const result = await resolveOrInviteAuthUser(admin.port, {
       email: "Mary@Example.com",
       displayName: "Mary Chen",
-      redirectTo: "https://app.tweakandbuild.com/login",
+      redirectTo: "https://app.tweakandbuild.com/setup-password",
     });
 
     expect(result).toEqual({ ok: true, userId: "new-mary@example.com", invited: true });
     expect(admin.inviteUserByEmail).toHaveBeenCalledWith("mary@example.com", {
       data: { display_name: "Mary Chen" },
-      redirectTo: "https://app.tweakandbuild.com/login",
+      redirectTo: "https://app.tweakandbuild.com/setup-password",
     });
   });
 
@@ -365,21 +365,27 @@ describe("where the invitation link comes back to", () => {
 
   it("uses the configured production origin and the login page that exists", () => {
     process.env.APP_BASE_URL = "https://app.tweakandbuild.com";
-    expect(resolveInviteRedirectUrl()).toBe("https://app.tweakandbuild.com/login");
+    expect(resolveInviteRedirectUrl()).toBe(
+      "https://app.tweakandbuild.com/setup-password"
+    );
   });
 
   it("tolerates a trailing slash and a missing scheme", () => {
     process.env.APP_BASE_URL = "app.tweakandbuild.com/";
-    expect(resolveInviteRedirectUrl()).toBe("https://app.tweakandbuild.com/login");
+    expect(resolveInviteRedirectUrl()).toBe(
+      "https://app.tweakandbuild.com/setup-password"
+    );
   });
 
   it("falls back through the same variables the rest of the app uses", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://app.tweakandbuild.com";
-    expect(resolveInviteRedirectUrl()).toBe("https://app.tweakandbuild.com/login");
+    expect(resolveInviteRedirectUrl()).toBe(
+      "https://app.tweakandbuild.com/setup-password"
+    );
 
     delete process.env.NEXT_PUBLIC_APP_URL;
     process.env.VERCEL_PROJECT_PRODUCTION_URL = "tweak-os.vercel.app";
-    expect(resolveInviteRedirectUrl()).toBe("https://tweak-os.vercel.app/login");
+    expect(resolveInviteRedirectUrl()).toBe("https://tweak-os.vercel.app/setup-password");
   });
 
   it("returns null rather than inventing an origin", () => {

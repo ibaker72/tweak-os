@@ -25,6 +25,13 @@ API (or links the login they already have) and writes the profile as an active
 agent. Nobody has to touch the Supabase dashboard, and profiles created there
 by hand before this existed still work unchanged.
 
+The invitation lands on `/setup-password`, which establishes the session from
+the link and takes a password; after that everyone signs in at `/login` the
+same way. `src/lib/auth/invite-session.ts` explains why that page reads the URL
+fragment by hand — `@supabase/ssr` pins `flowType: "pkce"` and an invitation is
+an implicit grant, so the SDK will not consume it. Someone who already has a
+login is linked to a profile and never emailed; their password is untouched.
+
 ## Stack
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**

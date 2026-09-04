@@ -22,8 +22,22 @@ import { NextResponse, type NextRequest } from "next/server";
  * with a bearer CRON_SECRET — and carry no session cookie. Gating them here
  * would 401 every inbound webhook and every scheduled run. Each handler
  * authenticates its own caller before doing anything.
+ *
+ * /setup-password is where an invitation link lands. The invitee's session
+ * arrives in the URL fragment, which the browser never sends to the server, so
+ * this middleware cannot see it — gating the route would bounce every invitee
+ * to /login before the page could read it. Public here means the page renders,
+ * nothing more: it reads no data, and the password it sets goes through
+ * Supabase Auth against whatever session the page manages to establish. A
+ * visitor arriving with no valid link gets an explanation, never the form.
  */
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/webhooks", "/api/cron"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/setup-password",
+  "/api/auth",
+  "/api/webhooks",
+  "/api/cron",
+];
 
 /** Routes only an admin may call. Route handlers re-check with requireAdmin(). */
 const ADMIN_ONLY_PREFIXES = ["/api/agents"];
@@ -71,7 +85,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (isPublicPath(pathname)) {
-    // Signed-in users have no business on the login page.
+    // Signed-in users have no business on the login page. /setup-password is
+    // deliberately not included: an invitee reaches it *with* a session — the
+    // page establishes one from the link before showing the form — so bouncing
+    // a signed-in visitor away from it would break the only path to it.
     if (user && pathname.startsWith("/login")) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";

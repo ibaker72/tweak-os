@@ -250,14 +250,19 @@ export async function resolveOrInviteAuthUser(
 // ---------------------------------------------------------------------------
 
 /**
- * The only page in this app an invited person can usefully arrive on.
+ * Where an invitation link comes back to.
  *
- * There is no /auth/callback route here — sign-in is email and password
- * against Supabase directly (src/app/login/page.tsx), and the browser client
- * picks the session out of the URL it was redirected with. So the invite comes
- * back to /login, which exists, rather than to a callback route that does not.
+ * Not /login: that page only calls signInWithPassword, and an invited person
+ * has no password yet. Not a server callback route either — an invitation
+ * arrives as an implicit grant with its tokens in the URL fragment, and a
+ * fragment is never sent to the server, so a server route could not see it.
+ *
+ * /setup-password is a real page that reads the fragment, establishes the
+ * session, and takes a password. See src/lib/auth/invite-session.ts for why
+ * the SDK cannot do that part on its own, and src/proxy.ts for why the route
+ * is reachable without a session.
  */
-export const INVITE_REDIRECT_PATH = "/login";
+export const INVITE_REDIRECT_PATH = "/setup-password";
 
 /**
  * The public origin, from configuration only.

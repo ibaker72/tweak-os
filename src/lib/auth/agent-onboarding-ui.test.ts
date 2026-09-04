@@ -204,12 +204,15 @@ describe("service-role credentials stay on the server", () => {
     expect(route).not.toContain("createServiceClient");
   });
 
-  it("the invite redirect points at a route that exists", () => {
+  it("the invite redirect points at the acceptance route, which exists", () => {
     const onboarding = readFileSync(path.join(SRC, "lib/auth/agent-onboarding.ts"), "utf8");
-    expect(onboarding).toContain('INVITE_REDIRECT_PATH = "/login"');
-    // /login is a real page, and the middleware lets a signed-out visitor
-    // reach it.
-    expect(() => statSync(path.join(SRC, "app/login/page.tsx"))).not.toThrow();
-    expect(readFileSync(path.resolve(SRC, "proxy.ts"), "utf8")).toContain('"/login"');
+    expect(onboarding).toContain('INVITE_REDIRECT_PATH = "/setup-password"');
+
+    // It is a real page, and the middleware lets a signed-out invitee reach
+    // it — their session is in a URL fragment the server never sees.
+    expect(() => statSync(path.join(SRC, "app/setup-password/page.tsx"))).not.toThrow();
+    expect(readFileSync(path.resolve(SRC, "proxy.ts"), "utf8")).toContain(
+      '"/setup-password"'
+    );
   });
 });
